@@ -9,9 +9,10 @@ REPO="handin"
 
 # generate key pairs if not exist
 if ! test -r "$KEYFILE"; then
-    read -p "SSH key file $KEYFILE does not exists, generate one? [Y/n]" r
+    read -p "SSH key file $KEYFILE does not exist, generate one? [Y/n]" r
     test "$r" = y -o "$r" = Y -o -z "$r" || exit 0
 
+    mkdir -p "`dirname $KEYFILE`"
     if ! ssh-keygen -t rsa -N '' -C '' -f "$KEYFILE"; then
         echo "$0: cannot generate key pairs"
         exit 1
