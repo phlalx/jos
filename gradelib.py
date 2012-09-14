@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys, os, re, time, socket, select, subprocess, errno, shutil
 from subprocess import check_call, Popen
 from optparse import OptionParser
@@ -23,8 +25,8 @@ def test(points, title=None, parent=None):
 
     def register_test(fn, title=title):
         if not title:
-            assert fn.func_name.startswith("test_")
-            title = fn.func_name[5:].replace("_", " ")
+            assert fn.__name__.startswith("test_")
+            title = fn.__name__[5:].replace("_", " ")
         if parent:
             title = "  " + title
 
@@ -46,19 +48,19 @@ def test(points, title=None, parent=None):
             sys.stdout.flush()
             try:
                 fn()
-            except AssertionError, e:
+            except AssertionError as e:
                 fail = str(e)
 
             # Display and handle test result
             POSSIBLE += points
             if points:
-                print "%s" % \
-                    (color("red", "FAIL") if fail else color("green", "OK")),
+                print("%s" % \
+                    (color("red", "FAIL") if fail else color("green", "OK")), end=' ')
             if time.time() - start > 0.1:
-                print "(%.1fs)" % (time.time() - start),
-            print
+                print("(%.1fs)" % (time.time() - start), end=' ')
+            print()
             if fail:
-                print "    %s" % fail.replace("\n", "\n    ")
+                print("    %s" % fail.replace("\n", "\n    "))
             else:
                 TOTAL += points
             for callback in run_test.on_finish:
@@ -66,7 +68,7 @@ def test(points, title=None, parent=None):
             CURRENT_TEST = None
 
         # Record test metadata on the test wrapper function
-        run_test.func_name = fn.func_name
+        run_test.__name__ = fn.__name__
         run_test.title = title
         run_test.complete = False
         run_test.on_finish = []
@@ -77,9 +79,9 @@ def test(points, title=None, parent=None):
 def end_part(name):
     def show_part():
         global PART_TOTAL, PART_POSSIBLE
-        print "Part %s score: %d/%d" % \
-            (name, TOTAL - PART_TOTAL, POSSIBLE - PART_POSSIBLE)
-        print
+        print("Part %s score: %d/%d" % \
+            (name, TOTAL - PART_TOTAL, POSSIBLE - PART_POSSIBLE))
+        print()
         PART_TOTAL, PART_POSSIBLE = TOTAL, POSSIBLE
     show_part.title = ""
     TESTS.append(show_part)
@@ -103,13 +105,13 @@ def run_tests():
     reset_fs()
 
     # Run tests
-    limit = map(str.lower, args)
+    limit = list(map(str.lower, args))
     try:
         for test in TESTS:
             if not limit or any(l in test.title.lower() for l in limit):
                 test()
         if not limit:
-            print "Score: %d/%d" % (TOTAL, POSSIBLE)
+            print("Score: %d/%d" % (TOTAL, POSSIBLE))
     except KeyboardInterrupt:
         pass
     if TOTAL < POSSIBLE:
@@ -212,13 +214,13 @@ def make(*target):
 
 def show_command(cmd):
     from pipes import quote
-    print "\n$", " ".join(map(quote, cmd))
+    print("\n$", " ".join(map(quote, cmd)))
 
 def maybe_unlink(*paths):
     for path in paths:
         try:
             os.unlink(path)
-        except EnvironmentError, e:
+        except EnvironmentError as e:
             if e.errno != errno.ENOENT:
                 raise
 
@@ -249,10 +251,10 @@ class QEMU(object):
         except socket.error:
             pass
         else:
-            print >> sys.stderr, """\
+            print("""\
 GDB stub found on port %d.
 QEMU appears to already be running.  Please exit it if possible or use
-'killall qemu' or 'killall qemu.real'.""" % self.get_gdb_port()
+'killall qemu' or 'killall qemu.real'.""" % self.get_gdb_port(), file=sys.stderr)
             sys.exit(1)
 
         if options.verbose:
@@ -282,7 +284,7 @@ QEMU appears to already be running.  Please exit it if possible or use
             return self.proc.stdout.fileno()
 
     def handle_read(self):
-        buf = os.read(self.proc.stdout.fileno(), 4096)
+        buf = os.read(self.proc.stdout.fileno(), 4096).decode("utf-8")
         self.output += buf
         for callback in self.on_output:
             callback(buf)
@@ -315,7 +317,7 @@ class GDBClient(object):
 
     def handle_read(self):
         try:
-            data = self.sock.recv(4096)
+            data = self.sock.recv(4096).decode("utf-8")
         except socket.error:
             data = ""
         if data == "":
@@ -337,10 +339,10 @@ class GDBClient(object):
 
     def __send(self, cmd):
         packet = "$%s#%02x" % (cmd, sum(map(ord, cmd)) % 256)
-        self.sock.sendall(packet)
+        self.sock.sendall(packet.encode("utf-8"))
 
     def __send_break(self):
-        self.sock.sendall("\x03")
+        self.sock.sendall(b"\x03")
 
     def close(self):
         if self.sock:
@@ -395,8 +397,8 @@ class Runner():
             self.__react([self.qemu], timeout=30)
             self.qemu.on_output = []
             if self.gdb is None:
-                print "Failed to connect to QEMU; output:"
-                print self.qemu.output
+                print("Failed to connect to QEMU; output:")
+                print(self.qemu.output)
                 sys.exit(1)
             post_make()
 
@@ -420,10 +422,10 @@ class Runner():
                 self.gdb.close()
                 self.qemu.wait()
             except:
-                print """\
+                print("""\
 Failed to shutdown QEMU.  You might need to 'killall qemu' or
 'killall qemu.real'.
-"""
+""")
                 raise
 
     def __monitor_start(self, output):
@@ -490,15 +492,15 @@ def save(path):
 
     def save_on_finish(fail):
         f.flush()
-        save_path = path + "." + get_current_test().func_name[5:]
+        save_path = path + "." + get_current_test().__name__[5:]
         if fail:
             shutil.copyfile(path, save_path)
-            print "    QEMU output saved to %s" % save_path
+            print("    QEMU output saved to %s" % save_path)
         elif os.path.exists(save_path):
             os.unlink(save_path)
-            print "    (Old %s failure log removed)" % save_path
+            print("    (Old %s failure log removed)" % save_path)
 
-    f = file(path, "w")
+    f = open(path, "w")
     return setup_save
 
 def stop_breakpoint(addr):
@@ -507,7 +509,7 @@ def stop_breakpoint(addr):
 
     def setup_breakpoint(runner):
         if isinstance(addr, str):
-            addrs = [int(sym[:8], 16) for sym in file("obj/kern/kernel.sym")
+            addrs = [int(sym[:8], 16) for sym in open("obj/kern/kernel.sym")
                      if sym[11:].strip() == addr]
             assert len(addrs), "Symbol %s not found" % addr
             runner.gdb.breakpoint(addrs[0])
