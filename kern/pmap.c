@@ -91,7 +91,7 @@ boot_alloc(uint32_t n)
 	if (!nextfree) {
 		extern char end[];
 		nextfree = ROUNDUP((char *) end, PGSIZE);
-        cprintf("boot_alloc: nextfree initialized at %p\n", nextfree);
+        // cprintf("boot_alloc: nextfree initialized at %p\n", nextfree);
 	}
     result = nextfree;
     nextfree = ROUNDUP((char *) nextfree + n, PGSIZE);
@@ -111,9 +111,9 @@ boot_alloc(uint32_t n)
 	// to a multiple of PGSIZE.
 	//
 
-    cprintf("boot_alloc: allocate %d bytes starting at address %p %p\n", n, 
-            PADDR(result), result);
-    cprintf("boot_alloc: nextfree is now %p %p\n", PADDR(nextfree), nextfree);
+    // cprintf("boot_alloc: allocate %d bytes starting at address %p %p\n", n, 
+    //        PADDR(result), result);
+    //cprintf("boot_alloc: nextfree is now %p %p\n", PADDR(nextfree), nextfree);
 	return result;
 }
 
@@ -162,6 +162,8 @@ mem_init(void)
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
 
+    envs = boot_alloc(sizeof(struct Env) * NENV);
+
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further
@@ -197,6 +199,8 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
+    boot_map_region(kern_pgdir, UENVS, sizeof(struct Env) * NENV, 
+            PADDR(envs), PTE_U | PTE_P);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -289,8 +293,8 @@ page_init(void)
     bool free = false; // we consider [zone[0]; zones[1]( to be in use
     size_t zi, i;
     for (zi = 0; zi < sizeof(zones)/4 - 1; zi++) {
-        cprintf("zone[%d]-zone[%d] : %p - %p\n", 
-                zi, zi+1, zones[zi] * PGSIZE, zones[zi+1] * PGSIZE);
+        //cprintf("zone[%d]-zone[%d] : %p - %p\n", 
+        //        zi, zi+1, zones[zi] * PGSIZE, zones[zi+1] * PGSIZE);
         uint16_t ref = free?0:1; // dummy reference count for used pages
         for (i = zones[zi]; i < zones[zi + 1]; i++) {
             pages[i].pp_ref = ref; 
@@ -301,13 +305,14 @@ page_init(void)
         }
         free =  1 - free;
     }
-    cprintf("page init, first available pages\n");
-    struct PageInfo *tmp = page_free_list;
-    int z;
-    for (z = 0; z < 3; z++) {
-        cprintf("page2pa = %x\n", page2pa(tmp)); 
-        tmp = tmp->pp_link;
-    }
+    cprintf("page init, first availables pages\n");
+
+    // struct PageInfo *tmp = page_free_list;
+    // int z;
+    // for (z = 0; z < 10; z++) {
+    //   cprintf("page2pa = %x\n", page2pa(tmp)); 
+    //    tmp = tmp->pp_link;
+    // }
 }
 
 //
@@ -333,7 +338,6 @@ page_alloc(int alloc_flags)
         memset(page2kva(res), 0, PGSIZE);
     }
 
-    cprintf("Allocate page. Physical: %x. Virtual %x\n", page2pa(res), page2kva(res));
 	return res;
 }
 
@@ -480,7 +484,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
     *pte = page2pa(pp) | PTE_P | perm;
     pp->pp_ref++; 
     //TODO: deal with corner case as hinted 
-    
+    cprintf("insert page at address %x\n", va);    
 	return 0;
 }
 
@@ -578,9 +582,35 @@ static uintptr_t user_mem_check_addr;
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
-	// LAB 3: Your code here.
+    pde_t *pgdir = env->env_pgdir;
+    pte_t *pte_store;
+    struct PageInfo *pi;
 
-	return 0;
+    // TODO: if va + len > 4GB??
+    // replace 0xFFF by the right define
+    uintptr_t cur_va = (uintptr_t) va & ~(PGSIZE-1);
+    uintptr_t last_va = (uintptr_t) (va + len) & ~(PGSIZE-1);
+
+    user_mem_check_addr = (uintptr_t) va;
+    while (cur_va <= last_va) { 
+        if ((uintptr_t) va >= ULIM) {
+            return -E_FAULT;
+        }
+
+        pi = page_lookup(pgdir, (void *) cur_va, &pte_store);
+        if (!pi) {
+            return -E_FAULT;
+        }
+        pte_t pte = *pte_store & PTE_SYSCALL;
+        if (! (~perm | (*pte_store & PTE_SYSCALL))) {
+            return -E_FAULT;
+        }
+
+        cur_va += PGSIZE;
+        user_mem_check_addr = cur_va;
+    }
+ 
+   	return 0;
 }
 
 //
