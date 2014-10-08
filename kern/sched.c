@@ -5,6 +5,7 @@
 #include <kern/pmap.h>
 #include <kern/monitor.h>
 
+
 void sched_halt(void);
 
 // Choose a user environment to run and run it.
@@ -12,6 +13,8 @@ void
 sched_yield(void)
 {
 	struct Env *idle;
+	struct Env *current;
+//    cprintf("sched_yield\n");
 
 	// Implement simple round-robin scheduling.
 	//
@@ -29,7 +32,38 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
+    // 
+    //
+    int i;
+    bool ok = false;
 
+    idle = curenv?curenv:envs;
+    current = idle;
+
+    //cprintf("entering sched_yeld on processor %d\n", cpunum());
+
+    for (i = 0; i < NENV; i++) {
+        current++;
+        if (current == envs + NENV) {
+            current = envs;
+        }
+        assert(current >= envs);
+        assert(current < envs + NENV);
+
+        if (current->env_status == ENV_RUNNABLE) {
+            break;
+        }
+    }
+    // in case current is RUNNING, make sure it's not running on an other cpu
+    if (current->env_status == ENV_RUNNABLE) {
+        env_run(current);
+    }
+    if (current->env_status == ENV_RUNNING && current->env_cpunum == cpunum()) {
+        assert(current == idle);
+        env_run(current);
+    }
+
+    // panic("nothing to run");
 	// sched_halt never returns
 	sched_halt();
 }

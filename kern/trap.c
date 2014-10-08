@@ -85,6 +85,7 @@ extern void mchk_handler();
 extern void simderr_handler();
 extern void syscall_handler();
 extern void default_handler();
+extern void timer_handler();
 
 void
 trap_init(void)
@@ -192,6 +193,42 @@ trap_init(void)
             GD_KT /* segment selector */, 
             (void *) default_handler, 
             3 /* dpl */ )
+
+    // IRQ SETTING
+    SETGATE(idt[IRQ_OFFSET+IRQ_TIMER], 
+            0 /* istrap */, 
+            GD_KT /* segment selector */, 
+            (void *) timer_handler, 
+            3 /* dpl */ )
+
+           // TODO : quel numero d'interruption généré par le default_handler 
+            // si j'affiche le trapno ?
+    SETGATE(idt[IRQ_OFFSET+IRQ_KBD], 
+            0 /* istrap */, 
+            GD_KT /* segment selector */, 
+            (void *) default_handler, 
+            3 /* dpl */ )
+    SETGATE(idt[IRQ_OFFSET+IRQ_SERIAL], 
+            0 /* istrap */, 
+            GD_KT /* segment selector */, 
+            (void *) default_handler, 
+            3 /* dpl */ )
+    SETGATE(idt[IRQ_OFFSET+IRQ_SPURIOUS], 
+            0 /* istrap */, 
+            GD_KT /* segment selector */, 
+            (void *) default_handler, 
+            3 /* dpl */ )
+    SETGATE(idt[IRQ_OFFSET+IRQ_IDE], 
+            0 /* istrap */, 
+            GD_KT /* segment selector */, 
+            (void *) default_handler, 
+            3 /* dpl */ )
+    SETGATE(idt[IRQ_OFFSET+IRQ_ERROR], 
+            0 /* istrap */, 
+            GD_KT /* segment selector */, 
+            (void *) default_handler, 
+            3 /* dpl */ )
+
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -225,17 +262,20 @@ trap_init_percpu(void)
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	ts.ts_esp0 = KSTACKTOP;
-	ts.ts_ss0 = GD_KD;
+
+    int i = cpunum(); 
+
+	cpus[i].cpu_ts.ts_esp0 = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+	cpus[i].cpu_ts.ts_ss0 = GD_KD;
 
 	// Initialize the TSS slot of the gdt.
-	gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
+	gdt[(GD_TSS0 >> 3) + i] = SEG16(STS_T32A, (uint32_t) (&cpus[i].cpu_ts),
 					sizeof(struct Taskstate), 0);
-	gdt[GD_TSS0 >> 3].sd_s = 0;
+	gdt[(GD_TSS0 >> 3) + i].sd_s = 0;
 
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0);
+	ltr(((GD_TSS0 >> 3) + i) << 3);
 
 	// Load the IDT
 	lidt(&idt_pd);
@@ -260,9 +300,9 @@ print_trapframe(struct Trapframe *tf)
 	// PR=a protection violation caused the fault (NP=page not present).
 	if (tf->tf_trapno == T_PGFLT)
 		cprintf(" [%s, %s, %s]\n",
-			tf->tf_err & 4 ? "user" : "kernel",
-			tf->tf_err & 2 ? "write" : "read",
-			tf->tf_err & 1 ? "protection" : "not-present");
+			tf->tf_err & FEC_U ? "user" : "kernel",
+			tf->tf_err & FEC_WR ? "write" : "read", 
+			tf->tf_err & FEC_PR ? "protection" : "not-present");
 	else
 		cprintf("\n");
 	cprintf("  eip  0x%08x\n", tf->tf_eip);
@@ -290,11 +330,13 @@ print_regs(struct PushRegs *regs)
 static void
 trap_dispatch(struct Trapframe *tf)
 {
+    // cprintf("dispatching a trap %d\n", tf->tf_trapno);
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
     
     if (tf->tf_trapno == T_PGFLT) {
         page_fault_handler(tf); // can this function return?
+        assert(false);
         return;
     } 
     if (tf->tf_trapno == T_BRKPT) {
@@ -305,7 +347,11 @@ trap_dispatch(struct Trapframe *tf)
         tf->tf_regs.reg_eax = 
             syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx, 
                 tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
-        env_pop_tf(tf);
+        env_run(curenv);
+        // TODO env_pop_tf ou env_run? ou même sched_yield?
+        // uniformiser le cas des appels systemes qui rendent la main et ceux
+        // qui redonnent la main au schedulers
+        //env_pop_tf(tf);
     } 
 
 
@@ -314,13 +360,23 @@ trap_dispatch(struct Trapframe *tf)
 	// IRQ line or other reasons. We don't care.
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
 		cprintf("Spurious interrupt on irq 7\n");
-		print_trapframe(tf);
+//		print_trapframe(tf);
 		return;
 	}
 
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+
+    if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		// cprintf("timer interrupt\n");
+		lapic_eoi();
+    	// print_trapframe(tf);
+        sched_yield();
+        assert(false);
+        return;
+    } 
+
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -335,6 +391,7 @@ trap_dispatch(struct Trapframe *tf)
 void
 trap(struct Trapframe *tf)
 {
+	// cprintf("Trap: = %s\n", trapname(tf->tf_trapno) );
 	// The environment may have set DF and some versions
 	// of GCC rely on DF being clear
 	asm volatile("cld" ::: "cc");
@@ -344,13 +401,17 @@ trap(struct Trapframe *tf)
 	if (panicstr)
 		asm volatile("hlt");
 
-	// Re-acqurie the big kernel lock if we were halted in
+	// Re-acquire the big kernel lock if we were halted in
 	// sched_yield()
 	if (xchg(&thiscpu->cpu_status, CPU_STARTED) == CPU_HALTED)
 		lock_kernel();
 	// Check that interrupts are disabled.  If this assertion
 	// fails, DO NOT be tempted to fix it by inserting a "cli" in
 	// the interrupt path.
+    //
+    //
+    // TODO : pas ce qu'il faut faire !
+    //write_eflags(0);
 	assert(!(read_eflags() & FL_IF));
 
 	if ((tf->tf_cs & 3) == 3) {
@@ -358,7 +419,9 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
+        lock_kernel();
 		assert(curenv);
+
 
 		// Garbage collect if current enviroment is a zombie
 		if (curenv->env_status == ENV_DYING) {
@@ -379,16 +442,18 @@ trap(struct Trapframe *tf)
 	// print_trapframe can print some additional information.
 	last_tf = tf;
 
+
 	// Dispatch based on what type of trap occurred
 	trap_dispatch(tf);
 
 	// If we made it to this point, then no other environment was
 	// scheduled, so we should return to the current environment
 	// if doing so makes sense.
-	if (curenv && curenv->env_status == ENV_RUNNING)
+	if (curenv && curenv->env_status == ENV_RUNNING) {
 		env_run(curenv);
-	else
+    } else {
 		sched_yield();
+    }
 }
 
 
@@ -399,13 +464,12 @@ page_fault_handler(struct Trapframe *tf)
 
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
+//    cprintf("trap handler: faulting at address %p\n", fault_va);
 
 	// Handle kernel-mode page faults.
     if ((tf->tf_cs & 3) == 0) {
         panic("page fault in kernel mode");
     }
-
-	// LAB 3: Your code here.
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
@@ -440,10 +504,48 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 4: Your code here.
 
-	// Destroy the environment that caused the fault.
-	cprintf("[%08x] user fault va %08x ip %08x\n",
-		curenv->env_id, fault_va, tf->tf_eip);
-	print_trapframe(tf);
-	env_destroy(curenv);
+    // if no handler, destroy the environment that caused the fault.
+    if (!curenv->env_pgfault_upcall) {
+        cprintf("[%08x] user fault va %08x ip %08x\n",
+            curenv->env_id, fault_va, tf->tf_eip);
+        print_trapframe(tf);
+        env_destroy(curenv);
+        return;
+    }
+
+    uint32_t *stack = ((uint32_t *) UXSTACKTOP) - 1;
+    // if this is recursive page fault, we add an extra word
+    if (tf->tf_esp < UXSTACKTOP && tf->tf_esp >= UXSTACKTOP - PGSIZE) {
+        stack = ((uint32_t *) tf->tf_esp) - 1;
+    } 
+
+    // TODO: vérifier ces bornes
+    user_mem_assert(curenv, stack - sizeof(struct UTrapframe) + 1, sizeof(struct UTrapframe), PTE_W);
+
+    // Call the environment's page fault upcall, if one exists.  Set up a
+	// page fault stack frame on the user exception stack (below
+	// UXSTACKTOP), then branch to curenv->env_pgfault_upcall.
+   
+    // TODO rewrite this with less instructions
+    //
+    *stack = tf->tf_esp; stack--;
+    *stack = tf->tf_eflags; stack--;
+    *stack = tf->tf_eip; stack--;
+    *stack = tf->tf_regs.reg_eax; stack--;
+    *stack = tf->tf_regs.reg_ecx; stack--;
+    *stack = tf->tf_regs.reg_edx; stack--;
+    *stack = tf->tf_regs.reg_ebx; stack--;
+    *stack = tf->tf_regs.reg_oesp; stack--;
+    *stack = tf->tf_regs.reg_ebp; stack--;
+    *stack = tf->tf_regs.reg_esi; stack--;
+    *stack = tf->tf_regs.reg_edi; stack--;
+    *stack = tf->tf_err; stack--; 
+    *stack = fault_va; 
+
+    curenv->env_tf.tf_eip = (uintptr_t) curenv->env_pgfault_upcall;
+    curenv->env_tf.tf_esp = (uintptr_t) stack;
+
+    // TODO env_pop ou env_run ?
+    env_run(curenv); 
 }
 

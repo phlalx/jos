@@ -69,11 +69,14 @@ TRAPHANDLER_NOEC(simderr_handler, T_SIMDERR)
 TRAPHANDLER_NOEC(syscall_handler, T_SYSCALL)
 TRAPHANDLER_NOEC(default_handler, T_DEFAULT)
 
+TRAPHANDLER_NOEC(timer_handler, IRQ_OFFSET + IRQ_TIMER) 
 /*
  * Lab 3: Your code here for _alltraps
  */
 
 _alltraps:
+	cli   // TODO shouldn't be done this way according to a comment in trap.c
+	// in any case, this is needed only for software interrupts (trap and exceptions)
     pushw $0 // padding
     pushw %ds
     pushw $0 // padding

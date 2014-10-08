@@ -48,6 +48,7 @@ i386_detect_memory(void)
 	else
 		npages = npages_basemem;
 
+    // TODO check if this is correct
 	cprintf("Physical memory: %uK available, base = %uK, extended = %uK\n",
 		npages * PGSIZE / 1024,
 		npages_basemem * PGSIZE / 1024,
@@ -83,6 +84,9 @@ static void check_page_installed_pgdir(void);
 static void *
 boot_alloc(uint32_t n)
 {
+    if (n > 0) {
+        cprintf("boot alloc allocates %d bytes (%d  KB)\n", n, n >> 10);
+    }
 	static char *nextfree;	// virtual address of next byte of free memory
 	char *result;
 	// Initialize nextfree if this is the first time.
@@ -104,7 +108,8 @@ boot_alloc(uint32_t n)
     
     assert ((uint32_t) nextfree % PGSIZE == 0);
 
-    // TODO :if (nextfree + n > 4GB) {
+    // TODO on ne veut pas sortir de la zone des 4MB alloués initialement 
+    // if (nextfree + n > ???) {
     //    panic("Not enough memory");
     // }
 
@@ -194,6 +199,7 @@ mem_init(void)
     boot_map_region(kern_pgdir, UPAGES, sizeof(struct PageInfo) * npages, 
             PADDR(pages), PTE_U | PTE_P);
 
+
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
 	// (ie. perm = PTE_U | PTE_P).
@@ -215,9 +221,11 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
-
-    boot_map_region(kern_pgdir, KSTACKTOP-KSTKSIZE, KSTKSIZE, 
-            PADDR(bootstack), PTE_W | PTE_P);
+    // 
+    //boot_map_region(kern_pgdir, KSTACKTOP-KSTKSIZE, KSTKSIZE, 
+    ///        PADDR(bootstack), PTE_W | PTE_P);
+    //
+    // This is done in mem_init_mp now
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -244,8 +252,9 @@ mem_init(void)
 	// If the machine reboots at this point, you've probably set up your
 	// kern_pgdir wrong.
 	lcr3(PADDR(kern_pgdir));
+    cprintf("kernel new pgdir is in place\n");
 
-	check_page_free_list(0);
+	//check_page_free_list(0);
 
 	// entry.S set the really important flags in cr0 (including enabling
 	// paging).  Here we configure the rest of the flags that we care about.
@@ -255,7 +264,7 @@ mem_init(void)
 	lcr0(cr0);
 
 	// Some more checks, only possible after kern_pgdir is installed.
-	check_page_installed_pgdir();
+	//check_page_installed_pgdir();
 }
 
 // Modify mappings in kern_pgdir to support SMP
@@ -280,6 +289,12 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
+    uintptr_t kstacktopi;
+    int i;
+    for (i = 0; i < NCPU; i++) {
+        kstacktopi = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+        boot_map_region(kern_pgdir, kstacktopi - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W | PTE_P);
+    }
 
 }
 
@@ -323,7 +338,9 @@ page_init(void)
     page_free_list = NULL;
     assert (first_free_page % PGSIZE == 0);
     assert (first_free_page > EXTPHYSMEM);
-    uint32_t zones[] = {0, 1, npages_basemem, first_free_page / PGSIZE, npages};  
+    assert(MPENTRY_PADDR / PGSIZE + 1 < npages_basemem);
+    uint32_t zones[] = {0, 1, (MPENTRY_PADDR / PGSIZE), (MPENTRY_PADDR / PGSIZE) + 1,
+         npages_basemem, first_free_page / PGSIZE, npages};  
     bool free = false; // we consider [zone[0]; zones[1]( to be in use
     size_t zi, i;
     for (zi = 0; zi < sizeof(zones)/4 - 1; zi++) {
@@ -339,14 +356,6 @@ page_init(void)
         }
         free =  1 - free;
     }
-    cprintf("page init, first availables pages\n");
-
-    // struct PageInfo *tmp = page_free_list;
-    // int z;
-    // for (z = 0; z < 10; z++) {
-    //   cprintf("page2pa = %x\n", page2pa(tmp)); 
-    //    tmp = tmp->pp_link;
-    // }
 }
 
 //
@@ -372,6 +381,7 @@ page_alloc(int alloc_flags)
         memset(page2kva(res), 0, PGSIZE);
     }
 
+  //  cprintf("Allocate page. Physical: %x. Virtual %x\n", page2pa(res), page2kva(res));
 	return res;
 }
 
@@ -442,8 +452,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
         new_page->pp_ref = 1;
         physaddr_t ppa = page2pa(new_page);
         assert (ppa % PGSIZE == 0);
-        // TODO: what other bits to set
-        pgdir[pdx] = ppa | 0xfff; //PTE_P ; 
+        pgdir[pdx] = ppa | PTE_P | PTE_W | PTE_U ; 
         pgtbl = (pde_t *) KADDR(ppa); 
         res = pgtbl + ptx;
     } else {
@@ -518,7 +527,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
     *pte = page2pa(pp) | PTE_P | perm;
     pp->pp_ref++; 
     //TODO: deal with corner case as hinted 
-    cprintf("insert page at address %x\n", va);    
+    //cprintf("insert page at address %x\n", va);    
 	return 0;
 }
 
@@ -624,8 +633,15 @@ mmio_map_region(physaddr_t pa, size_t size)
 	//
 	// Hint: The staff solution uses boot_map_region.
 	//
-	// Your code here:
-	panic("mmio_map_region not implemented");
+    //
+    size = ((size & (PGSIZE - 1)) == 0)?size:(size+PGSIZE)&~(PGSIZE-1);
+    if (base + size > MMIOLIM) {
+        panic("mmio_map_region: can't map io zone");
+    }
+    boot_map_region(kern_pgdir, base, size, pa, PTE_PCD|PTE_PWT|PTE_W);
+    base += size;
+    return (void *) (base - size);
+
 }
 
 static uintptr_t user_mem_check_addr;
@@ -656,14 +672,16 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
     struct PageInfo *pi;
 
     // TODO: if va + len > 4GB??
-    // replace 0xFFF by the right define
-    uintptr_t cur_va = (uintptr_t) va & ~(PGSIZE-1);
-    uintptr_t last_va = (uintptr_t) (va + len) & ~(PGSIZE-1);
+    uintptr_t cur_va = (uintptr_t) ROUNDDOWN(va, PGSIZE);
+    uintptr_t last_va = (uintptr_t) ROUNDUP(va + len, PGSIZE);
+    assert(cur_va <= (uintptr_t) va && (uintptr_t)(va + len) <= last_va);
+//    cprintf("user_mem_check: %p %p\n", cur_va, last_va);
 
-    user_mem_check_addr = (uintptr_t) va;
-    while (cur_va <= last_va) { 
+
+    user_mem_check_addr = (uintptr_t) cur_va;
+    while (cur_va < last_va) { 
         if ((uintptr_t) va >= ULIM) {
-            return -E_FAULT;
+	        return -E_FAULT;
         }
 
         pi = page_lookup(pgdir, (void *) cur_va, &pte_store);
@@ -692,7 +710,7 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 void
 user_mem_assert(struct Env *env, const void *va, size_t len, int perm)
 {
-	if (user_mem_check(env, va, len, perm | PTE_U) < 0) {
+	if (user_mem_check(env, va, len, perm | PTE_P | PTE_U) < 0) {
 		cprintf("[%08x] user_mem_check assertion failure for "
 			"va %08x\n", env->env_id, user_mem_check_addr);
 		env_destroy(env);	// may not return

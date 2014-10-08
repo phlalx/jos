@@ -270,6 +270,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Enable interrupts while in user mode.
 	// LAB 4: Your code here.
+    e->env_tf.tf_eflags = FL_IF;
 
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
@@ -280,7 +281,9 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	// commit the allocation
 	env_free_list = e->env_link;
 	*newenv_store = e;
-
+    //cprintf("env %d created, with father %d\n", e->env_id, parent_id); 
+    //
+	cprintf("[%08x] new env %08x\n", parent_id, e->env_id);
 	return 0;
 }
 
@@ -452,7 +455,7 @@ env_create(uint8_t *binary, size_t size, enum EnvType type)
     load_icode(newenv, binary, size); 
     newenv->env_type = ENV_TYPE_USER;
     newenv->env_parent_id = 0;
-	cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, newenv->env_id);
+	//cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, newenv->env_id);
 }
 
 //
@@ -544,6 +547,10 @@ env_pop_tf(struct Trapframe *tf)
 {
 	// Record the CPU we are running on for user-space debugging
 	curenv->env_cpunum = cpunum();
+//	cprintf("about to run env %08x with LF_IF = %08x\n", curenv->env_id
+//	, tf->tf_eflags & FL_IF);
+
+//	print_trapframe(tf);
 
 	__asm __volatile("movl %0,%%esp\n"
 		"\tpopal\n"
@@ -564,6 +571,7 @@ env_pop_tf(struct Trapframe *tf)
 void
 env_run(struct Env *e)
 {
+    //cprintf("env_run %08x\n", e->env_id);
 	// Step 1: If this is a context switch (a new environment is running):
 	//	   1. Set the current environment (if any) back to
 	//	      ENV_RUNNABLE if it is ENV_RUNNING (think about
@@ -580,15 +588,19 @@ env_run(struct Env *e)
 	//	e->env_tf.  Go back through the code you wrote above
 	//	and make sure you have set the relevant parts of
 	//	e->env_tf to sensible values.
+    // cprintf("trying to run %d on processor %d\n", e->env_id, e->env_cpunum);
 
 	// LAB 3: Your code here.
-    if (curenv) {
+    //cprintf("i'm about to run env %d\n", e->env_id);
+    if (curenv && curenv->env_status == ENV_RUNNING) {
         curenv->env_status = ENV_RUNNABLE;
     }
     curenv = e;
     e->env_status = ENV_RUNNING;
     e->env_runs++;
     lcr3(PADDR(e->env_pgdir));
+    unlock_kernel(); // TODO: is this the right place?
+
     env_pop_tf(&e->env_tf);
 }
 
