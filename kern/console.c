@@ -101,6 +101,9 @@ serial_init(void)
 	(void) inb(COM1+COM_IIR);
 	(void) inb(COM1+COM_RX);
 
+	// Enable serial interrupts
+	if (serial_exists)
+		irq_setmask_8259A(irq_mask_8259A & ~(1<<4));
 }
 
 
@@ -370,6 +373,7 @@ kbd_intr(void)
 static void
 kbd_init(void)
 {
+	// Drain the kbd buffer so that QEMU generates interrupts.
 	kbd_intr();
 	irq_setmask_8259A(irq_mask_8259A & ~(1<<1));
 }

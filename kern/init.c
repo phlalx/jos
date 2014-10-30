@@ -32,11 +32,14 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
+	cprintf("6828 decimal is %o octal!\n", 6828);
+
 	// Lab 2 memory management initialization functions
 	mem_init();
 
 	// Lab 3 user environment initialization functions
 	env_init();
+	trap_init();
 
 	// Lab 4 multiprocessor initialization functions
 	mp_init();
@@ -45,22 +48,25 @@ i386_init(void)
 	// Lab 4 multitasking initialization functions
 	pic_init();
 
-    trap_init();
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
-    // cprintf("lock before waking up other CPUs\n");
-    lock_kernel();
 
 	// Starting non-boot CPUs
 	boot_aps();
+
+	// Start fs.
+	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
-	ENV_CREATE(user_faultalloc, ENV_TYPE_USER);
+	ENV_CREATE(user_icode, ENV_TYPE_USER);
 #endif // TEST*
+
+	// Should not be necessary - drains keyboard because interrupt has given up.
+	kbd_intr();
 
 	// Schedule and run the first user environment!
 	sched_yield();
@@ -116,9 +122,9 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
-    lock_kernel();
-    sched_yield();
-    
+
+	// Remove this after you finish Exercise 4
+	for (;;);
 }
 
 /*

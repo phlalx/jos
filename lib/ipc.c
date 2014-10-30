@@ -22,15 +22,9 @@
 int32_t
 ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 {
-	int err = sys_ipc_recv(pg?pg:(void *)UTOP);
-	if (err < 0) {
-		if (from_env_store) *from_env_store = 0;
-		if (perm_store) *perm_store = 0;
-		return err;
-	}
-	if (from_env_store) *from_env_store = thisenv->env_ipc_from;
-	if (perm_store) *perm_store = thisenv->env_ipc_perm;
-	return thisenv->env_ipc_value;
+	// LAB 4: Your code here.
+	panic("ipc_recv not implemented");
+	return 0;
 }
 
 // Send 'val' (and 'pg' with 'perm', if 'pg' is nonnull) to 'toenv'.
@@ -39,23 +33,13 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 //
 // Hint:
 //   Use sys_yield() to be CPU-friendly.
-//   If 'pg' is null, pass sys_ipc_recv a value that it will understand
+//   If 'pg' is null, pass sys_ipc_try_send a value that it will understand
 //   as meaning "no page".  (Zero is not the right value.)
 void
 ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 {
-	while (true) {
-		int err = sys_ipc_try_send(to_env, val, pg?pg:(void *)UTOP, perm);
-		if (err == 0) {
-			return;
-		}
-		if (err != -E_IPC_NOT_RECV) {
-			cprintf("err %d\n", err);
-			panic("dest process coudn't process message");
-		}
-		sys_yield();
-	}
-	return;
+	// LAB 4: Your code here.
+	panic("ipc_send not implemented");
 }
 
 // Find the first environment of the given type.  We'll use this to

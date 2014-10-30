@@ -14,49 +14,49 @@ def E(s, trim=False):
     return re.sub(r"\$E([0-9]+)",
                   lambda m: tmpl % (0x1000 + int(m.group(1))-1), s)
 
-#@test(5)
-#def test_dumbfork():
-#    r.user_test("dumbfork")
-#    r.match(E(".00000000. new env $E1"),
-#            E(".$E1. new env $E2"),
-#            "0: I am the parent.",
-#            "9: I am the parent.",
-#            "0: I am the child.",
-#            "9: I am the child.",
-#            "19: I am the child.",
-#            E(".$E1. exiting gracefully"),
-#            E(".$E1. free env $E1"),
-#            E(".$E2. exiting gracefully"),
-#            E(".$E2. free env $E2"))
-#
-#end_part("A")
-#
-#@test(5)
-#def test_faultread():
-#    r.user_test("faultread")
-#    r.match(E(".$E1. user fault va 00000000 ip 008....."),
-#            "TRAP frame at 0xf....... from CPU .",
-#            "  trap 0x0000000e Page Fault",
-#            "  err  0x00000004.*",
-#            E(".$E1. free env $E1"),
-#            no=["I read ........ from location 0."])
-#
-#@test(5)
-#def test_faultwrite():
-#    r.user_test("faultwrite")
-#    r.match(E(".$E1. user fault va 00000000 ip 008....."),
-#            "TRAP frame at 0xf....... from CPU .",
-#            "  trap 0x0000000e Page Fault",
-#            "  err  0x00000006.*",
-#            E(".$E1. free env $E1"))
-#
-#@test(5)
-#def test_faultdie():
-#    r.user_test("faultdie")
-#    r.match("i faulted at va deadbeef, err 6",
-#            E(".$E1. exiting gracefully"),
-#            E(".$E1. free env $E1"))
-#
+@test(5)
+def test_dumbfork():
+    r.user_test("dumbfork")
+    r.match(E(".00000000. new env $E1"),
+            E(".$E1. new env $E2"),
+            "0: I am the parent.",
+            "9: I am the parent.",
+            "0: I am the child.",
+            "9: I am the child.",
+            "19: I am the child.",
+            E(".$E1. exiting gracefully"),
+            E(".$E1. free env $E1"),
+            E(".$E2. exiting gracefully"),
+            E(".$E2. free env $E2"))
+
+end_part("A")
+
+@test(5)
+def test_faultread():
+    r.user_test("faultread")
+    r.match(E(".$E1. user fault va 00000000 ip 008....."),
+            "TRAP frame at 0xf....... from CPU .",
+            "  trap 0x0000000e Page Fault",
+            "  err  0x00000004.*",
+            E(".$E1. free env $E1"),
+            no=["I read ........ from location 0."])
+
+@test(5)
+def test_faultwrite():
+    r.user_test("faultwrite")
+    r.match(E(".$E1. user fault va 00000000 ip 008....."),
+            "TRAP frame at 0xf....... from CPU .",
+            "  trap 0x0000000e Page Fault",
+            "  err  0x00000006.*",
+            E(".$E1. free env $E1"))
+
+@test(5)
+def test_faultdie():
+    r.user_test("faultdie")
+    r.match("i faulted at va deadbeef, err 6",
+            E(".$E1. exiting gracefully"),
+            E(".$E1. free env $E1"))
+
 @test(5)
 def test_faultregs():
     r.user_test("faultregs")
