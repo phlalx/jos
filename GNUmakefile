@@ -2,8 +2,8 @@
 # This makefile system follows the structuring conventions
 # recommended by Peter Miller in his excellent paper:
 #
-#	 Recursive Make Considered Harmful
-#	 http://aegis.sourceforge.net/auug97.pdf
+#	Recursive Make Considered Harmful
+#	http://aegis.sourceforge.net/auug97.pdf
 #
 OBJDIR := obj
 
@@ -51,6 +51,8 @@ endif
 ifndef QEMU
 QEMU := $(shell if which qemu > /dev/null; \
 	then echo qemu; exit; \
+        elif which qemu-system-i386 > /dev/null; \
+        then echo qemu-system-i386; exit; \
 	else \
 	qemu=/Applications/Q.app/Contents/MacOS/i386-softmmu.app/Contents/MacOS/i386-softmmu; \
 	if test -x $$qemu; then echo $$qemu; exit; fi; fi; \
@@ -84,6 +86,9 @@ PERL	:= perl
 CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -O1 -fno-builtin -I$(TOP) -MD
 CFLAGS += -fno-omit-frame-pointer
 CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs -m32
+# -fno-tree-ch prevented gcc from sometimes reordering read_ebp() before
+# mon_backtrace()'s function prologue on gcc version: (Debian 4.7.2-5) 4.7.2
+CFLAGS += -fno-tree-ch
 
 # Add -fno-stack-protector if the option exists.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
@@ -146,6 +151,9 @@ QEMUOPTS += $(QEMUEXTRA)
 .gdbinit: .gdbinit.tmpl
 	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
 
+gdb:
+	gdb -x .gdbinit
+
 pre-qemu: .gdbinit
 
 qemu: $(IMAGES) pre-qemu
@@ -159,13 +167,13 @@ qemu-nox: $(IMAGES) pre-qemu
 
 qemu-gdb: $(IMAGES) pre-qemu
 	@echo "***"
-	@echo "*** Now run 'gdb'." 1>&2
+	@echo "*** Now run 'make gdb'." 1>&2
 	@echo "***"
 	$(QEMU) $(QEMUOPTS) -S
 
 qemu-nox-gdb: $(IMAGES) pre-qemu
 	@echo "***"
-	@echo "*** Now run 'gdb'." 1>&2
+	@echo "*** Now run 'make gdb'." 1>&2
 	@echo "***"
 	$(QEMU) -nographic $(QEMUOPTS) -S
 
@@ -182,7 +190,8 @@ clean:
 realclean: clean
 	rm -rf lab$(LAB).tar.gz \
 		jos.out $(wildcard jos.out.*) \
-		qemu.pcap $(wildcard qemu.pcap.*)
+		qemu.pcap $(wildcard qemu.pcap.*) \
+		myapi.key
 
 distclean: realclean
 	rm -rf conf/gcc.mk
@@ -197,7 +206,7 @@ grade:
 	  (echo "'make clean' failed.  HINT: Do you have another running instance of JOS?" && exit 1)
 	./grade-lab$(LAB) $(GRADEFLAGS)
 
-handin: handin-check
+git-handin: handin-check
 	@if test -n "`git config remote.handin.url`"; then \
 		echo "Hand in to remote repository using 'git push handin HEAD' ..."; \
 		if ! git push -f handin HEAD; then \
@@ -214,7 +223,22 @@ handin: handin-check
 		false; \
 	fi
 
+WEBSUB = https://ccutler.scripts.mit.edu/6.828/handin.py
+
+handin: tarball-pref myapi.key
+	@SUF=$(LAB); \
+	test -f .suf && SUF=`cat .suf`; \
+	curl -f -F file=@lab$$SUF-handin.tar.gz -F key=\<myapi.key $(WEBSUB)/upload \
+	    > /dev/null || { \
+		echo ; \
+		echo Submit seems to have failed.; \
+		echo Please go to $(WEBSUB)/ and upload the tarball manually.; }
+
 handin-check:
+	@if ! test -d .git; then \
+		echo No .git directory, is this a git repository?; \
+		false; \
+	fi
 	@if test "$$(git symbolic-ref HEAD)" != refs/heads/lab$(LAB); then \
 		git branch; \
 		read -p "You are not on the lab$(LAB) branch.  Hand-in the current branch? [y/N] " r; \
@@ -234,6 +258,41 @@ handin-check:
 
 tarball: handin-check
 	git archive --format=tar HEAD | gzip > lab$(LAB)-handin.tar.gz
+
+tarball-pref: handin-check
+	@SUF=$(LAB); \
+	if test $(LAB) -eq 3 -o $(LAB) -eq 4; then \
+		read -p "Which part would you like to submit? [a, b, c (lab 4 only)]" p; \
+		if test "$$p" != a -a "$$p" != b; then \
+			if test ! $(LAB) -eq 4 -o ! "$$p" = c; then \
+				echo "Bad part \"$$p\""; \
+				exit 1; \
+			fi; \
+		fi; \
+		SUF="$(LAB)$$p"; \
+		echo $$SUF > .suf; \
+	else \
+		rm -f .suf; \
+	fi; \
+	git archive --prefix=lab$(LAB)/ --format=tar HEAD | gzip > lab$$SUF-handin.tar.gz
+
+myapi.key:
+	@echo Get an API key for yourself by visiting $(WEBSUB)
+	@read -p "Please enter your API key: " k; \
+	if test `echo -n "$$k" |wc -c` = 32 ; then \
+		TF=`mktemp -t tmp.XXXXXX`; \
+		if test "x$$TF" != "x" ; then \
+			echo -n "$$k" > $$TF; \
+			mv -f $$TF $@; \
+		else \
+			echo mktemp failed; \
+			false; \
+		fi; \
+	else \
+		echo Bad API key: $$k; \
+		echo An API key should be 32 characters long.; \
+		false; \
+	fi;
 
 handin-prep:
 	@./handin-prep
@@ -269,4 +328,4 @@ always:
 	@:
 
 .PHONY: all always \
-	handin tarball clean realclean distclean grade handin-prep handin-check
+	handin git-handin tarball tarball-pref clean realclean distclean grade handin-prep handin-check

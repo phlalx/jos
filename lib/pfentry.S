@@ -65,6 +65,7 @@ _pgfault_upcall:
 	// ways as registers become unavailable as scratch space.
 	//
 
+
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 
@@ -103,6 +104,4 @@ _pgfault_upcall:
 
 	// Return to re-execute the instruction that faulted.
     ret
-
-
 

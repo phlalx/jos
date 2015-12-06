@@ -5,7 +5,6 @@
 #include <kern/pmap.h>
 #include <kern/monitor.h>
 
-
 void sched_halt(void);
 
 // Choose a user environment to run and run it.
@@ -14,7 +13,6 @@ sched_yield(void)
 {
 	struct Env *idle;
 	struct Env *current;
-//    cprintf("sched_yield\n");
 
 	// Implement simple round-robin scheduling.
 	//
@@ -63,7 +61,6 @@ sched_yield(void)
         env_run(current);
     }
 
-    // panic("nothing to run");
 	// sched_halt never returns
 	sched_halt();
 }
@@ -80,7 +77,8 @@ sched_halt(void)
 	// environments in the system, then drop into the kernel monitor.
 	for (i = 0; i < NENV; i++) {
 		if ((envs[i].env_status == ENV_RUNNABLE ||
-		     envs[i].env_status == ENV_RUNNING))
+		     envs[i].env_status == ENV_RUNNING ||
+		     envs[i].env_status == ENV_DYING))
 			break;
 	}
 	if (i == NENV) {
@@ -108,7 +106,9 @@ sched_halt(void)
 		"pushl $0\n"
 		"pushl $0\n"
 		"sti\n"
+		"1:\n"
 		"hlt\n"
+		"jmp 1b\n"
 	: : "a" (thiscpu->cpu_ts.ts_esp0));
 }
 

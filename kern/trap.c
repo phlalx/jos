@@ -360,7 +360,7 @@ trap_dispatch(struct Trapframe *tf)
 	// IRQ line or other reasons. We don't care.
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
 		cprintf("Spurious interrupt on irq 7\n");
-//		print_trapframe(tf);
+		print_trapframe(tf);
 		return;
 	}
 
@@ -409,9 +409,6 @@ trap(struct Trapframe *tf)
 	// fails, DO NOT be tempted to fix it by inserting a "cli" in
 	// the interrupt path.
     //
-    //
-    // TODO : pas ce qu'il faut faire !
-    //write_eflags(0);
 	assert(!(read_eflags() & FL_IF));
 
 	if ((tf->tf_cs & 3) == 3) {
@@ -421,8 +418,6 @@ trap(struct Trapframe *tf)
 		// LAB 4: Your code here.
         lock_kernel();
 		assert(curenv);
-
-
 		// Garbage collect if current enviroment is a zombie
 		if (curenv->env_status == ENV_DYING) {
 			env_free(curenv);
@@ -442,18 +437,16 @@ trap(struct Trapframe *tf)
 	// print_trapframe can print some additional information.
 	last_tf = tf;
 
-
 	// Dispatch based on what type of trap occurred
 	trap_dispatch(tf);
 
 	// If we made it to this point, then no other environment was
 	// scheduled, so we should return to the current environment
 	// if doing so makes sense.
-	if (curenv && curenv->env_status == ENV_RUNNING) {
+	if (curenv && curenv->env_status == ENV_RUNNING)
 		env_run(curenv);
-    } else {
+	else
 		sched_yield();
-    }
 }
 
 

@@ -40,5 +40,4 @@ set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
     if ((err = sys_env_set_pgfault_upcall(e, _pgfault_upcall)) < 0) {
         panic("can't set up page fault handler");
     }
-
 }

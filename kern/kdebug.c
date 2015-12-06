@@ -159,7 +159,6 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
             return -1;
         }
 
-
 		// Make sure the STABS and string table memory is valid.
 		// LAB 3: Your code here.
 	}

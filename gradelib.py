@@ -301,6 +301,10 @@ QEMU appears to already be running.  Please exit it if possible or use
             self.proc.wait()
             self.proc = None
 
+    def kill(self):
+        if self.proc:
+            self.proc.terminate()
+
 class GDBClient(object):
     def __init__(self, port, timeout=15):
         start = time.time()
@@ -351,16 +355,13 @@ class GDBClient(object):
     def close(self):
         if self.sock:
             self.sock.close()
+            self.sock = None
 
     def cont(self):
         self.__send("c")
 
     def breakpoint(self, addr):
         self.__send("Z1,%x,1" % addr)
-
-    def kill(self):
-        self.__send_break()
-        self.__send("k")
 
 
 ##################################################################
@@ -421,7 +422,7 @@ class Runner():
             try:
                 if self.gdb is None:
                     sys.exit(1)
-                self.gdb.kill()
+                self.qemu.kill()
                 self.__react(self.reactors, 5)
                 self.gdb.close()
                 self.qemu.wait()

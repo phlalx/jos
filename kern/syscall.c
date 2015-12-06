@@ -21,6 +21,11 @@ sys_cputs(const char *s, size_t len)
 	// Check that the user has permission to read memory [s, s+len).
     // TODO : no special permission for READ (0) ?
     user_mem_assert(curenv, s, len, 0);
+	// Destroy the environment if not.
+
+
+	// LAB 3: Your code here.
+	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);
 }
 
@@ -141,9 +146,6 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
     env->env_pgfault_upcall = func;
     return 0;
 }
-
-
-
 
 // Allocate a page of memory and map it at 'va' with permission
 // 'perm' in the address space of 'envid'.
@@ -419,7 +421,7 @@ sys_ipc_recv(void *dstva)
   curenv->env_tf.tf_regs.reg_eax = 0; // if it resumes
   sched_yield();
   assert(false); // never returns
-	return 0;
+  return 0;
 }
 
 // Dispatches to the correct kernel function, passing the arguments.

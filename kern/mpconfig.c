@@ -154,7 +154,7 @@ mpconfig(struct mp **pmp)
 		cprintf("SMP: Unsupported MP version %d\n", conf->version);
 		return NULL;
 	}
-	if (sum((uint8_t *)conf + conf->length, conf->xlength) != conf->xchecksum) {
+	if ((sum((uint8_t *)conf + conf->length, conf->xlength) + conf->xchecksum) & 0xff) {
 		cprintf("SMP: Bad MP configuration extended checksum\n");
 		return NULL;
 	}

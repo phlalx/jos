@@ -61,7 +61,6 @@ KERN_BINFILES :=	user/hello \
 KERN_BINFILES +=	user/idle \
 			user/yield \
 			user/dumbfork \
-			user/forkeasy \
 			user/stresssched \
 			user/faultdie \
 			user/faultregs \
@@ -71,8 +70,8 @@ KERN_BINFILES +=	user/idle \
 			user/faultbadhandler \
 			user/faultevilhandler \
 			user/forktree \
+			user/sendpage \
 			user/spin \
-			user/simplespin \
 			user/fairness \
 			user/pingpong \
 			user/pingpongs \

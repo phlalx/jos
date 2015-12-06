@@ -227,7 +227,6 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	int32_t generation;
 	int r;
 	struct Env *e;
-   
 	if (!(e = env_free_list))
 		return -E_NO_FREE_ENV;
 
@@ -281,9 +280,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	// commit the allocation
 	env_free_list = e->env_link;
 	*newenv_store = e;
-    //cprintf("env %d created, with father %d\n", e->env_id, parent_id); 
-    //
-	cprintf("[%08x] new env %08x\n", parent_id, e->env_id);
+	cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 	return 0;
 }
 
@@ -354,7 +351,7 @@ region_alloc(struct Env *e, void *va, size_t len)
 //  - How might load_icode fail?  What might be wrong with the given input?
 //
 static void
-load_icode(struct Env *e, uint8_t *binary, size_t size)
+load_icode(struct Env *e, uint8_t *binary)
 {
 	// Hints:
 	//  Load each program segment into virtual memory
@@ -386,9 +383,6 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 
 	// LAB 3: Your code here.
 
-    if (size < sizeof(struct Elf)) {
-        panic("Not ELF Format");
-    }
     struct Elf *header = (struct Elf *) binary;
 	if (header->e_magic != ELF_MAGIC) {
 		goto bad;
@@ -420,9 +414,6 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	// note: does not return!
 	// ((void (*)(void)) ())();
 
-	// Now map one page for the program's initial stack
-	// at virtual address USTACKTOP - PGSIZE.
-
     // TODO: check wether this is the right area
     region_alloc(e, (void *) (USTACKTOP - PGSIZE), PGSIZE);
 
@@ -434,6 +425,10 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 bad:
     panic("load icode");
 
+	// Now map one page for the program's initial stack
+	// at virtual address USTACKTOP - PGSIZE.
+
+	// LAB 3: Your code here.
 }
 
 //
@@ -444,7 +439,7 @@ bad:
 // The new env's parent ID is set to 0.
 //
 void
-env_create(uint8_t *binary, size_t size, enum EnvType type)
+env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
     struct Env *newenv;
@@ -452,7 +447,7 @@ env_create(uint8_t *binary, size_t size, enum EnvType type)
     if (env_alloc(&newenv, 0)) {
         panic("Can't create inital user environment");
     }
-    load_icode(newenv, binary, size); 
+    load_icode(newenv, binary); 
     newenv->env_type = ENV_TYPE_USER;
     newenv->env_parent_id = 0;
 	//cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, newenv->env_id);
@@ -571,7 +566,6 @@ env_pop_tf(struct Trapframe *tf)
 void
 env_run(struct Env *e)
 {
-    //cprintf("env_run %08x\n", e->env_id);
 	// Step 1: If this is a context switch (a new environment is running):
 	//	   1. Set the current environment (if any) back to
 	//	      ENV_RUNNABLE if it is ENV_RUNNING (think about

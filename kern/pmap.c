@@ -180,7 +180,6 @@ mem_init(void)
 	page_init();
 
 	check_page_free_list(1);
-
     check_page_alloc();
 	check_page();
 
@@ -198,7 +197,6 @@ mem_init(void)
     //
     boot_map_region(kern_pgdir, UPAGES, sizeof(struct PageInfo) * npages, 
             PADDR(pages), PTE_U | PTE_P);
-
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -237,7 +235,6 @@ mem_init(void)
 	// Your code goes here:
     boot_map_region(kern_pgdir, KERNBASE, (~KERNBASE) - PGSIZE, 0, PTE_W | PTE_P);
 
-
 	// Initialize the SMP-related parts of the memory map
 	mem_init_mp();
 
@@ -253,8 +250,6 @@ mem_init(void)
 	// kern_pgdir wrong.
 	lcr3(PADDR(kern_pgdir));
     cprintf("kernel new pgdir is in place\n");
-
-	//check_page_free_list(0);
 
 	// entry.S set the really important flags in cr0 (including enabling
 	// paging).  Here we configure the rest of the flags that we care about.
@@ -295,7 +290,6 @@ mem_init_mp(void)
         kstacktopi = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
         boot_map_region(kern_pgdir, kstacktopi - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W | PTE_P);
     }
-
 }
 
 // --------------------------------------------------------------
@@ -392,6 +386,9 @@ page_alloc(int alloc_flags)
 void
 page_free(struct PageInfo *pp)
 {
+	// Fill this function in
+	// Hint: You may want to panic if pp->pp_ref is nonzero or
+	// pp->pp_link is not NULL.
     struct PageInfo *old_pfl = page_free_list;
     page_free_list = pp;
     pp->pp_link = old_pfl;
@@ -425,9 +422,6 @@ page_decref(struct PageInfo* pp)
 //
 // Hint 2: the x86 MMU checks permission bits in both the page directory
 // and the page table, so it's safe to leave permissions in the page
-// more permissive than strictly necessary.
-//
-// Hint 3: look at inc/mmu.h for useful macros that manipulate page
 // table and page directory entries.
 //
 pte_t *
@@ -463,7 +457,8 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 
 //
 // Map [va, va+size) of virtual address space to physical [pa, pa+size)
-// in the page table rooted at pgdir.  Size is a multiple of PGSIZE.
+// in the page table rooted at pgdir.  Size is a multiple of PGSIZE, and
+// va and pa are both page-aligned.
 // Use permission bits perm|PTE_P for the entries.
 //
 // This function is only intended to set up the ``static'' mappings
@@ -641,7 +636,6 @@ mmio_map_region(physaddr_t pa, size_t size)
     boot_map_region(kern_pgdir, base, size, pa, PTE_PCD|PTE_PWT|PTE_W);
     base += size;
     return (void *) (base - size);
-
 }
 
 static uintptr_t user_mem_check_addr;
@@ -975,10 +969,9 @@ check_page(void)
 
 	// there is no page allocated at address 0
 	assert(page_lookup(kern_pgdir, (void *) 0x0, &ptep) == NULL);
-    
+
 	// there is no free memory, so we can't allocate a page table
 	assert(page_insert(kern_pgdir, pp1, 0x0, PTE_W) < 0);
-
 
 	// free pp0 and try again: pp0 should be used for page table
 	page_free(pp0);
@@ -1037,14 +1030,17 @@ check_page(void)
 
 	// pp2 should be returned by page_alloc
 	assert((pp = page_alloc(0)) && pp == pp2);
-
-
 	// unmapping pp1 at 0 should keep pp1 at PGSIZE
 	page_remove(kern_pgdir, 0x0);
 	assert(check_va2pa(kern_pgdir, 0x0) == ~0);
 	assert(check_va2pa(kern_pgdir, PGSIZE) == page2pa(pp1));
 	assert(pp1->pp_ref == 1);
 	assert(pp2->pp_ref == 0);
+
+	// test re-inserting pp1 at PGSIZE
+	assert(page_insert(kern_pgdir, pp1, (void*) PGSIZE, 0) == 0);
+	assert(pp1->pp_ref);
+	assert(pp1->pp_link == NULL);
 
 	// unmapping pp1 at PGSIZE should free it
 	page_remove(kern_pgdir, (void*) PGSIZE);
