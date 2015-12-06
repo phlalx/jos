@@ -32,14 +32,11 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("6828 decimal is %o octal!\n", 6828);
-
 	// Lab 2 memory management initialization functions
 	mem_init();
 
 	// Lab 3 user environment initialization functions
 	env_init();
-	trap_init();
 
 	// Lab 4 multiprocessor initialization functions
 	mp_init();
@@ -48,8 +45,11 @@ i386_init(void)
 	// Lab 4 multitasking initialization functions
 	pic_init();
 
+    trap_init();
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
+    // cprintf("lock before waking up other CPUs\n");
+    lock_kernel();
 
 	// Starting non-boot CPUs
 	boot_aps();
@@ -122,9 +122,9 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
-
-	// Remove this after you finish Exercise 4
-	for (;;);
+    lock_kernel();
+    sched_yield();
+    
 }
 
 /*

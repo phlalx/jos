@@ -24,14 +24,20 @@ void (*_pgfault_handler)(struct UTrapframe *utf);
 void
 set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
 {
+    int err;
 	int r;
+    // TODO: can I avoid system call here for retrievieng environment?
+    envid_t e = sys_getenvid();
 
 	if (_pgfault_handler == 0) {
-		// First time through!
-		// LAB 4: Your code here.
-		panic("set_pgfault_handler not implemented");
+        if ((err = sys_page_alloc(e, (void *) (UXSTACKTOP - PGSIZE), PTE_U|PTE_P|PTE_W) < 0)) {
+            panic("can't allocate exception stack");
+        }
 	}
 
 	// Save handler pointer for assembly to call.
 	_pgfault_handler = handler;
+    if ((err = sys_env_set_pgfault_upcall(e, _pgfault_upcall)) < 0) {
+        panic("can't set up page fault handler");
+    }
 }

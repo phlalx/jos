@@ -25,16 +25,16 @@ umain(int argc, char **argv)
 void
 duppage(envid_t dstenv, void *addr)
 {
-	int r;
+    int r;
 
-	// This is NOT what you should do in your fork.
-	if ((r = sys_page_alloc(dstenv, addr, PTE_P|PTE_U|PTE_W)) < 0)
-		panic("sys_page_alloc: %e", r);
-	if ((r = sys_page_map(dstenv, addr, 0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)
-		panic("sys_page_map: %e", r);
-	memmove(UTEMP, addr, PGSIZE);
-	if ((r = sys_page_unmap(0, UTEMP)) < 0)
-		panic("sys_page_unmap: %e", r);
+    // This is NOT what you should do in your fork.
+    if ((r = sys_page_alloc(dstenv, addr, PTE_P|PTE_U|PTE_W)) < 0)
+        panic("sys_page_alloc: %e", r);
+    if ((r = sys_page_map(dstenv, addr, 0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)
+        panic("sys_page_map: %e", r);
+    memmove(UTEMP, addr, PGSIZE);
+    if ((r = sys_page_unmap(0, UTEMP)) < 0)
+        panic("sys_page_unmap: %e", r);
 }
 
 envid_t
@@ -65,8 +65,10 @@ dumbfork(void)
 	// We're the parent.
 	// Eagerly copy our entire address space into the child.
 	// This is NOT what you should do in your fork implementation.
-	for (addr = (uint8_t*) UTEXT; addr < end; addr += PGSIZE)
+	for (addr = (uint8_t*) UTEXT; addr < end; addr += PGSIZE) {
+//        cprintf("duppage %p\n", addr);
 		duppage(envid, addr);
+    }
 
 	// Also copy the stack we are currently running on.
 	duppage(envid, ROUNDDOWN(&addr, PGSIZE));
