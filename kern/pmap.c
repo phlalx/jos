@@ -374,6 +374,8 @@ page_alloc(int alloc_flags)
     if (alloc_flags & ALLOC_ZERO) {
         memset(page2kva(res), 0, PGSIZE);
     }
+    // TODO why do that??
+    res->pp_link = NULL;
 
   //  cprintf("Allocate page. Physical: %x. Virtual %x\n", page2pa(res), page2kva(res));
 	return res;
@@ -519,6 +521,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
         }
         page_remove(pgdir, va);
     }
+
     *pte = page2pa(pp) | PTE_P | perm;
     pp->pp_ref++; 
     //TODO: deal with corner case as hinted 

@@ -457,10 +457,12 @@ page_fault_handler(struct Trapframe *tf)
 
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
-//    cprintf("trap handler: faulting at address %p\n", fault_va);
+    //cprintf("trap handler: faulting at address %p, eip = %p\n", fault_va, tf->tf_eip);
 
 	// Handle kernel-mode page faults.
     if ((tf->tf_cs & 3) == 0) {
+    //	print_trapframe(tf);
+    //	cprintf("faulting address %08x\n", fault_va);
         panic("page fault in kernel mode");
     }
 
@@ -506,11 +508,13 @@ page_fault_handler(struct Trapframe *tf)
         return;
     }
 
-    uint32_t *stack = ((uint32_t *) UXSTACKTOP) - 1;
-    // if this is recursive page fault, we add an extra word
+    uint32_t *stack;
     if (tf->tf_esp < UXSTACKTOP && tf->tf_esp >= UXSTACKTOP - PGSIZE) {
+	    // recursive page fault, we add an extra word
         stack = ((uint32_t *) tf->tf_esp) - 1;
-    } 
+    } else {
+		stack = ((uint32_t *) UXSTACKTOP);
+    }
 
     // TODO: vérifier ces bornes
     user_mem_assert(curenv, stack - sizeof(struct UTrapframe) + 1, sizeof(struct UTrapframe), PTE_W);
@@ -521,6 +525,7 @@ page_fault_handler(struct Trapframe *tf)
    
     // TODO rewrite this with less instructions
     //
+    stack--;
     *stack = tf->tf_esp; stack--;
     *stack = tf->tf_eflags; stack--;
     *stack = tf->tf_eip; stack--;
