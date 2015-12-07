@@ -28,13 +28,13 @@ void spin_unlock(struct spinlock *lk);
 extern struct spinlock kernel_lock;
 
 static inline void
-lock_kernel(void)
+lock_kernel()
 {
 	spin_lock(&kernel_lock);
 }
 
 static inline void
-unlock_kernel(void)
+unlock_kernel()
 {
 	spin_unlock(&kernel_lock);
 

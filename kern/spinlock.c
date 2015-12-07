@@ -82,30 +82,33 @@ spin_lock(struct spinlock *lk)
 void
 spin_unlock(struct spinlock *lk)
 {
-#ifdef DEBUG_SPINLOCK
-	if (!holding(lk)) {
-		int i;
-		uint32_t pcs[10];
-		// Nab the acquiring EIP chain before it gets released
-		memmove(pcs, lk->pcs, sizeof pcs);
-		cprintf("CPU %d cannot release %s: held by CPU %d\nAcquired at:", 
-			cpunum(), lk->name, lk->cpu->cpu_id);
-		for (i = 0; i < 10 && pcs[i]; i++) {
-			struct Eipdebuginfo info;
-			if (debuginfo_eip(pcs[i], &info) >= 0)
-				cprintf("  %08x %s:%d: %.*s+%x\n", pcs[i],
-					info.eip_file, info.eip_line,
-					info.eip_fn_namelen, info.eip_fn_name,
-					pcs[i] - info.eip_fn_addr);
-			else
-				cprintf("  %08x\n", pcs[i]);
-		}
-		panic("spin_unlock");
-	}
+ #ifdef DEBUG_SPINLOCK
+ 	if (!holding(lk)) {
+ 		int i;
+ 		uint32_t pcs[10];
+ 		// Nab the acquiring EIP chain before it gets released
+ 		memmove(pcs, lk->pcs, sizeof pcs);
+ 		assert(lk->name);
+ 		assert(lk->cpu);
+ 		assert(cpunum());
+ 		cprintf("CPU %d cannot release %s: held by CPU %d\nAcquired at:", 
+ 			cpunum(), lk->name, lk->cpu->cpu_id);
+ 		for (i = 0; i < 10 && pcs[i]; i++) {
+ 			struct Eipdebuginfo info;
+ 			if (debuginfo_eip(pcs[i], &info) >= 0)
+ 				cprintf("  %08x %s:%d: %.*s+%x\n", pcs[i],
+ 					info.eip_file, info.eip_line,
+ 					info.eip_fn_namelen, info.eip_fn_name,
+ 					pcs[i] - info.eip_fn_addr);
+ 			else
+ 				cprintf("  %08x\n", pcs[i]);
+ 		}
+ 		panic("spin_unlock");
+ 	}
 
-	lk->pcs[0] = 0;
-	lk->cpu = 0;
-#endif
+ 	lk->pcs[0] = 0;
+ 	lk->cpu = 0;
+ #endif
 
 	// The xchg serializes, so that reads before release are 
 	// not reordered after it.  The 1996 PentiumPro manual (Volume 3,

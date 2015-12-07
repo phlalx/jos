@@ -94,102 +94,102 @@ trap_init(void)
     extern void divide_handler();
 	// LAB 3: Your code here.
     SETGATE(idt[T_DIVIDE], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) divide_handler, 
             3 /* dpl */ )
     SETGATE(idt[T_DEBUG], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) debug_handler, 
             3 /* dpl */ )
     SETGATE(idt[T_NMI], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) nmi_handler, 
             3 /* dpl */ )
    SETGATE(idt[T_BRKPT], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) brkpt_handler, 
             3 /* dpl */ )
    SETGATE(idt[T_OFLOW], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) oflow_handler, 
             3 /* dpl */ )
    SETGATE(idt[T_BOUND], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) bound_handler, 
             3 /* dpl */ )
    SETGATE(idt[T_ILLOP], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) illop_handler, 
             3 /* dpl */ )
    SETGATE(idt[T_DEVICE], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) device_handler, 
             3 /* dpl */ )
    SETGATE(idt[T_DBLFLT], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) dblflt_handler, 
             3 /* dpl */ )
    SETGATE(idt[T_TSS], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) tss_handler, 
             3 /* dpl */ )
    SETGATE(idt[T_SEGNP], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) segnp_handler, 
             3 /* dpl */ )
    SETGATE(idt[T_STACK], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) stack_handler, 
             3 /* dpl */ )
    SETGATE(idt[T_GPFLT], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) gpflt_handler, 
             3 /* dpl */ )
     SETGATE(idt[T_PGFLT], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) pgflt_handler, 
             0 /* dpl */ )
     SETGATE(idt[T_FPERR], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) fperr_handler, 
             3 /* dpl */ )
     SETGATE(idt[T_ALIGN], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) align_handler, 
             3 /* dpl */ )
     SETGATE(idt[T_MCHK], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) mchk_handler, 
             3 /* dpl */ )
     SETGATE(idt[T_SIMDERR], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) simderr_handler, 
             3 /* dpl */ )
     SETGATE(idt[T_SYSCALL], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) syscall_handler, 
             3 /* dpl */ )
     SETGATE(idt[T_DEFAULT], 
-            1 /* istrap */, 
+            0 /* istrap */, 
             GD_KT /* segment selector */, 
             (void *) default_handler, 
             3 /* dpl */ )
@@ -394,7 +394,8 @@ trap_dispatch(struct Trapframe *tf)
 void
 trap(struct Trapframe *tf)
 {
-	// cprintf("Trap: = %s\n", trapname(tf->tf_trapno) );
+//	cprintf("Trap = %s, privilege (3 = user) %d %p\n", trapname(tf->tf_trapno), tf->tf_cs & 3,
+	//	tf->tf_eip);
 	// The environment may have set DF and some versions
 	// of GCC rely on DF being clear
 	asm volatile("cld" ::: "cc");
@@ -460,7 +461,7 @@ page_fault_handler(struct Trapframe *tf)
 
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
-    //cprintf("trap handler: faulting at address %p, eip = %p\n", fault_va, tf->tf_eip);
+//    cprintf("trap handler: faulting at address %p, eip = %p\n", fault_va, tf->tf_eip);
 
 	// Handle kernel-mode page faults.
     if ((tf->tf_cs & 3) == 0) {

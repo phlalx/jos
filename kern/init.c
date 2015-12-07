@@ -46,6 +46,7 @@ i386_init(void)
 	pic_init();
 
     trap_init();
+
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
     // cprintf("lock before waking up other CPUs\n");
@@ -55,7 +56,7 @@ i386_init(void)
 	boot_aps();
 
 	// Start fs.
-	ENV_CREATE(fs_fs, ENV_TYPE_FS);
+//	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!
