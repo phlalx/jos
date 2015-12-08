@@ -443,8 +443,7 @@ void
 env_create(uint8_t *binary, enum EnvType type)
 {
 
-	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
-	// LAB 5: Your code here.
+
     //
 	// LAB 3: Your code here.
     struct Env *newenv;
@@ -455,6 +454,15 @@ env_create(uint8_t *binary, enum EnvType type)
     load_icode(newenv, binary); 
     newenv->env_type = ENV_TYPE_USER;
     newenv->env_parent_id = 0;
+
+	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
+	// LAB 5: Your code here.
+	if (type == ENV_TYPE_FS) {
+		// FL_IOPL_3, CPL <= IOPL must be true in order to access I/O ports
+		// User processes run at CPL = 3, so FL_IOPL_3 give rights to this process 
+		newenv->env_tf.tf_eflags = newenv->env_tf.tf_eflags | FL_IOPL_3;
+	}
+
 	//cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, newenv->env_id);
 }
 
