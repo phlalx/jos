@@ -62,8 +62,33 @@ alloc_block(void)
 	// super->s_nblocks blocks in the disk altogether.
 
 	// LAB 5: Your code here.
-	panic("alloc_block not implemented");
-	return -E_NO_DISK;
+	int blocksn = super->s_nblocks;
+	uint32_t *bitmap_cur = bitmap; 
+	int block_cur = 0;
+	assert(blocksn % 32 == 0); // TODO relax this assumption?
+	while ((block_cur != blocksn) && (*bitmap_cur == 0)) {
+		bitmap_cur++;
+		block_cur += 32;
+	}
+
+	if (block_cur == blocksn) {
+		return -E_NO_DISK;
+	}
+
+	unsigned int bit_mask = 1;
+	int block_no = 0;
+	assert(*bitmap_cur != 0);
+	while (((*bitmap_cur) & bit_mask) == 0) {
+		bit_mask <<= 1;
+		block_no++;
+	}
+
+	assert(block_no < 32);
+	*bitmap_cur &= ~bit_mask; 
+
+	flush_block(bitmap_cur);
+	assert(!block_is_free(block_cur + block_no));
+	return block_cur + block_no;
 }
 
 // Validate the file system bitmap.
