@@ -176,19 +176,19 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 	// indirection
 	diskbno = f->f_indirect;
 	if (!diskbno) {
+		cprintf("no indirect block\n");
 		// no indirect block
 		if (!alloc) {
 			return -E_NOT_FOUND;
 		}
 		diskbno = alloc_block();
-	   	// clean the new block ?
 		if (!diskbno) {
 			return -E_NO_DISK;
 		} 
 		memset(diskaddr(diskbno), 0, BLKSIZE);
 		f->f_indirect = diskbno;
 	}
-	*ppdiskbno = diskaddr(diskbno) + (filebno - NDIRECT);
+	*ppdiskbno = (uint32_t *)diskaddr(diskbno) + (filebno - NDIRECT);
 	return 0;
 }
 
