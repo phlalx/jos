@@ -452,7 +452,7 @@ env_create(uint8_t *binary, enum EnvType type)
         panic("Can't create inital user environment");
     }
     load_icode(newenv, binary); 
-    newenv->env_type = ENV_TYPE_USER;
+    newenv->env_type = type;
     newenv->env_parent_id = 0;
 
 	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.

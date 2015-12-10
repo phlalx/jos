@@ -33,8 +33,6 @@ bc_pgfault(struct UTrapframe *utf)
 	uint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;
 	int r;
 
-	cprintf("bc_pagefault %p, reading block %d\n", addr, blockno);
-
 	// Check that the fault was within the block cache region
 	if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
 		panic("page fault in FS: eip %08x, va %08x, err %04x",
@@ -113,10 +111,8 @@ check_bc(void)
 {
 	struct Super backup;
 
-	cprintf("BLA bcheck_bac %d\n", sizeof backup);
 	// back up super block
 	memmove(&backup, diskaddr(1), sizeof backup);
-	cprintf("BLA bcheck_bac\n");
 
 	// smash it
 	strcpy(diskaddr(1), "OOPS!\n");
