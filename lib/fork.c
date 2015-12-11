@@ -18,6 +18,7 @@ pgfault(struct UTrapframe *utf)
 	uint32_t err = utf->utf_err;
 	int r;
 
+
 	// Check that the faulting access was (1) a write, and (2) to a
 	// copy-on-write page.  If not, panic.
 	// Hint:
@@ -56,11 +57,20 @@ pgfault(struct UTrapframe *utf)
         panic("error in fork pagefault\n");
 }
 
-// copie le contenu de la page addr dans mon environnement
-// vers celui de dest
-void duppage(void *addr, envid_t dest) {
-//    assert(addr & ~(PGSIZE - 1) == 0);
+//
+// Map our virtual page pn (address pn*PGSIZE) into the target envid
+// at the same virtual address.  If the page is writable or copy-on-write,
+// the new mapping must be created copy-on-write, and then our mapping must be
+// marked copy-on-write as well.  (Exercise: Why do we need to mark ours
+// copy-on-write again if it was already copy-on-write at the beginning of
+// this function?)
+//
+// Returns: 0 on success, < 0 on error.
+// It is also OK to panic on error.
+//
+void duppage(uint32_t pn, envid_t dest) {
 
+    void *addr = (void *) (pn * PGSIZE);
     if ((sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W)) < 0)
         goto error;
 
@@ -78,24 +88,16 @@ error:
 }
 
 
-//
-// Map our virtual page pn (address pn*PGSIZE) into the target envid
-// at the same virtual address.  If the page is writable or copy-on-write,
-// the new mapping must be created copy-on-write, and then our mapping must be
-// marked copy-on-write as well.  (Exercise: Why do we need to mark ours
-// copy-on-write again if it was already copy-on-write at the beginning of
-// this function?)
-//
-// Returns: 0 on success, < 0 on error.
-// It is also OK to panic on error.
-//
 static void
 mark_cow(envid_t envid, uint8_t *addr)
 {
-    if ((sys_page_map(0, addr, 0, addr, PTE_P|PTE_U|PTE_COW)) < 0)
+    cprintf("mark_cow %p\n", addr);
+    if ((sys_page_map(0, addr, 0, addr, PTE_P|PTE_U|PTE_COW)) < 0) {
         panic("mark cow");
-    if ((sys_page_map(0, addr, envid, addr, PTE_P|PTE_U|PTE_COW)) < 0)
+    }
+    if ((sys_page_map(0, addr, envid, addr, PTE_P|PTE_U|PTE_COW)) < 0) {
         panic("mark cow");
+    }
 }
 
 //
@@ -120,10 +122,9 @@ fork(void)
    	envid_t envid;
     unsigned pn;
 	int r;
-
-
-    
 	
+    set_pgfault_handler(pgfault);
+
 	// Allocate a new child environment.
 	// The kernel will initialize it with a copy of our register state,
 	// so that the child will appear to have called sys_exofork() too -
@@ -143,12 +144,13 @@ fork(void)
         return 0;
 	}
 
-    duppage((void *) (USTACKTOP - PGSIZE), envid);
+    cprintf("env = %08x is doing the job!\n", thisenv->env_id);
 
-    // set pgfault_handler
-    set_pgfault_handler(pgfault);
+    uint32_t pn_ustacktop = (USTACKTOP >> PGSHIFT) - 1;
+    uint32_t pn_uxstacktop = (UXSTACKTOP >> PGSHIFT) - 1;
 
-    duppage((void *) (UXSTACKTOP - PGSIZE), envid);
+//    duppage(pn_ustacktop, envid);
+    duppage(pn_uxstacktop, envid);
 
     int pgdx;
 
@@ -157,11 +159,13 @@ fork(void)
         if (pde & PTE_P) {
             int ptx;
             for (ptx = 0; ptx < 1024; ++ptx) {
-                pte_t pte = uvpt[pgdx * 1024 + ptx]; 
-                uint8_t *addr = (uint8_t *) ((pgdx << 22) + (ptx << 12));
-                if (addr == (void *) (USTACKTOP - PGSIZE)) continue; // TODO ugly hack
-                if (addr == (void *) (UXSTACKTOP - PGSIZE)) continue; // TODO ugly hack
+                uint32_t pn = (pgdx << 10) + ptx;
+                pte_t pte = uvpt[pn]; 
                 if (!(pte & PTE_P)) continue; 
+                //if (pn == pn_uxstacktop || pn == pn_ustacktop) continue; 
+                if (pn == pn_uxstacktop) continue; 
+                void *addr = (void *) (pn << PGSHIFT);
+                cprintf("* %p = %d\n", addr, *(uint32_t *)addr);
                 if ((pte & PTE_W) || (pte & PTE_COW)) {
                    mark_cow(envid, addr);
                } else {
