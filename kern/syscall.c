@@ -135,7 +135,28 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	// LAB 5: Your code here.
 	// Remember to check whether the user has supplied us with a good
 	// address!
-	panic("sys_env_set_trapframe not implemented");
+
+  struct Env *newenv; 
+  int err;
+
+  if ((err = envid2env(envid, &newenv, true) < 0)) {
+    return err;
+  }
+
+  // Check that the user has permission to read memory [s, s+len).
+    // TODO : no special permission for READ (0) ?
+  user_mem_assert(curenv, tf, sizeof(struct Trapframe), 0);
+
+  memcpy(&newenv->env_tf, tf, sizeof(struct Trapframe));
+
+  newenv->env_tf.tf_ds = GD_UD | 3;
+  newenv->env_tf.tf_es = GD_UD | 3;
+  newenv->env_tf.tf_ss = GD_UD | 3;
+  newenv->env_tf.tf_cs = GD_UT | 3;
+
+  // TODO clear other bits ? I/O ?
+  newenv->env_tf.tf_eflags |= FL_IF;
+  return 0;
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -488,6 +509,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
         case SYS_ipc_try_send:
            res = sys_ipc_try_send((envid_t) a1, (uint32_t) a2, (void *) a3,
             (unsigned) a4);
+           break;
+        case SYS_env_set_trapframe:
+           res = sys_env_set_trapframe((envid_t) a1, (struct Trapframe *) a2);
            break;
         case NSYSCALLS:
         default:
