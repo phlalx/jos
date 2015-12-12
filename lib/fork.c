@@ -44,6 +44,7 @@ pgfault(struct UTrapframe *utf)
 	//   No need to explicitly delete the old page's mapping.
 
     addr = (void *) ROUNDDOWN(addr, PGSIZE);
+
 	// LAB 4: Your code here.
     if ((r = sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W)) < 0)
             panic("error in fork pagefault\n");
@@ -51,12 +52,57 @@ pgfault(struct UTrapframe *utf)
     memmove(PFTEMP, addr, PGSIZE);
 
     // TODO que devient l'ancienne page mappé a addr ?
+    // je pense qu'elle est simplement déréférencée
     if ((r = sys_page_map(0, PFTEMP, 0, addr, PTE_P|PTE_U|PTE_W)) < 0)
         panic("error in fork pagefault\n");
 
     if ((r = sys_page_unmap(0, PFTEMP)) < 0)
         panic("error in fork pagefault\n");
 }
+
+
+// Copie la page à l'adresse addr dans l'espace memoire de dest 
+// à la même adresse
+// panique en cas d'erreur
+// void copy_page(void *addr, envid_t dest) {
+
+//     if ((sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W)) < 0)
+//         goto error;
+
+//     memmove(PFTEMP, addr, PGSIZE);
+
+//     if ((sys_page_map(0, PFTEMP, dest, addr, PTE_P|PTE_U|PTE_W)) < 0) goto error;
+
+//     if ((sys_page_unmap(0, PFTEMP)) < 0) goto error;
+
+//     return;
+
+// error:
+//         panic("error in copy_page\n");
+
+// }
+
+
+//
+// void duppage(uint32_t pn, envid_t dest) {
+
+//     void *addr = (void *) (pn * PGSIZE);
+//     if ((sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W)) < 0)
+//         goto error;
+
+//     memmove(PFTEMP, addr, PGSIZE);
+
+//     if ((sys_page_map(0, PFTEMP, dest, addr, PTE_P|PTE_U|PTE_W)) < 0) goto error;
+
+//     if ((sys_page_unmap(0, PFTEMP)) < 0) goto error;
+
+//     return;
+
+// error:
+//         panic("error in duppage\n");
+
+// }
+
 
 //
 // Map our virtual page pn (address pn*PGSIZE) into the target envid
@@ -69,42 +115,21 @@ pgfault(struct UTrapframe *utf)
 // Returns: 0 on success, < 0 on error.
 // It is also OK to panic on error.
 //
-void duppage(uint32_t pn, envid_t dest) {
-
-    void *addr = (void *) (pn * PGSIZE);
-    if ((sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W)) < 0)
-        goto error;
-
-    memmove(PFTEMP, addr, PGSIZE);
-
-    if ((sys_page_map(0, PFTEMP, dest, addr, PTE_P|PTE_U|PTE_W)) < 0) goto error;
-
-    if ((sys_page_unmap(0, PFTEMP)) < 0) goto error;
-
-    return;
-
-error:
-        panic("error in duppage\n");
-
-}
-
-
+// TODO: je ne comprends pas bien le découpage proposé,
+// on est obligé de chercher deux fois le pte
 static void
-mark_cow(envid_t envid, uint8_t *addr)
+duppage(envid_t envid, uint32_t pn)
 {
-    // if (addr == (void *)0xeebfd000) {
-    //     cprintf("mark_cow %p\n", addr);
-    //     cprintf("<<<<\n");
-    // }
-    if ((sys_page_map(0, addr, envid, addr, PTE_P|PTE_U|PTE_COW)) < 0) {
-        panic("mark cow");
-    }
-    if ((sys_page_map(0, addr, 0, addr, PTE_P|PTE_U|PTE_COW)) < 0) {
-        panic("mark cow");
-    }
-    // if (addr == (void *)0xeebfd000) {
-    //     cprintf(">>>>\n");
-    // }
+    pte_t pte = uvpt[pn]; 
+    void *addr = (void *) (pn << PGSHIFT);
+    if (((pte & PTE_W) || (pte & PTE_COW)) && !(pte & PTE_SHARE)) {
+       if ((sys_page_map(0, addr, envid, addr, PTE_P|PTE_U|PTE_COW)) < 0) 
+          panic("mark cow");
+       if ((sys_page_map(0, addr, 0, addr, PTE_P|PTE_U|PTE_COW)) < 0) 
+          panic("mark cow");
+    } else {
+       sys_page_map(0, addr, envid, addr, PTE_P |PTE_U | (pte & PTE_SYSCALL));
+    } 
 }
 
 //
@@ -151,13 +176,10 @@ fork(void)
         return 0;
 	}
 
-//    cprintf("env = %08x is doing the job!\n", thisenv->env_id);
-
-    uint32_t pn_ustacktop = (USTACKTOP >> PGSHIFT) - 1;
     uint32_t pn_uxstacktop = (UXSTACKTOP >> PGSHIFT) - 1;
 
-//    duppage(pn_ustacktop, envid);
-    duppage(pn_uxstacktop, envid);
+    if ((sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_P|PTE_U|PTE_W)) < 0)
+        panic ("Can't alloc exception stack in child process");
 
     int pgdx;
 
@@ -169,14 +191,8 @@ fork(void)
                 uint32_t pn = (pgdx << 10) + ptx;
                 pte_t pte = uvpt[pn]; 
                 if (!(pte & PTE_P)) continue; 
-                //if (pn == pn_uxstacktop || pn == pn_ustacktop) continue; 
                 if (pn == pn_uxstacktop) continue; 
-                void *addr = (void *) (pn << PGSHIFT);
-                if ((pte & PTE_W) || (pte & PTE_COW)) {
-                   mark_cow(envid, addr);
-               } else {
-                   sys_page_map(0, addr, envid, addr, PTE_P|PTE_U);
-               } 
+                duppage(envid, pn);
            }
         }
     }
