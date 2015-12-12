@@ -461,8 +461,8 @@ page_fault_handler(struct Trapframe *tf)
 
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
-    cprintf("trap handler: proc %08x faulting at address %p, eip = %p\n", 
-    	curenv->env_id, fault_va, tf->tf_eip);
+    // cprintf("page fault handler: proc %08x faulting at address %p, eip = %p\n", 
+    // 	curenv->env_id, fault_va, tf->tf_eip);
 
 	// Handle kernel-mode page faults.
     if ((tf->tf_cs & 3) == 0) {

@@ -50,6 +50,7 @@ pgfault(struct UTrapframe *utf)
 
     memmove(PFTEMP, addr, PGSIZE);
 
+    // TODO que devient l'ancienne page mappé a addr ?
     if ((r = sys_page_map(0, PFTEMP, 0, addr, PTE_P|PTE_U|PTE_W)) < 0)
         panic("error in fork pagefault\n");
 
@@ -91,13 +92,19 @@ error:
 static void
 mark_cow(envid_t envid, uint8_t *addr)
 {
-    cprintf("mark_cow %p\n", addr);
-    if ((sys_page_map(0, addr, 0, addr, PTE_P|PTE_U|PTE_COW)) < 0) {
-        panic("mark cow");
-    }
+    // if (addr == (void *)0xeebfd000) {
+    //     cprintf("mark_cow %p\n", addr);
+    //     cprintf("<<<<\n");
+    // }
     if ((sys_page_map(0, addr, envid, addr, PTE_P|PTE_U|PTE_COW)) < 0) {
         panic("mark cow");
     }
+    if ((sys_page_map(0, addr, 0, addr, PTE_P|PTE_U|PTE_COW)) < 0) {
+        panic("mark cow");
+    }
+    // if (addr == (void *)0xeebfd000) {
+    //     cprintf(">>>>\n");
+    // }
 }
 
 //
@@ -144,7 +151,7 @@ fork(void)
         return 0;
 	}
 
-    cprintf("env = %08x is doing the job!\n", thisenv->env_id);
+//    cprintf("env = %08x is doing the job!\n", thisenv->env_id);
 
     uint32_t pn_ustacktop = (USTACKTOP >> PGSHIFT) - 1;
     uint32_t pn_uxstacktop = (UXSTACKTOP >> PGSHIFT) - 1;
@@ -165,7 +172,6 @@ fork(void)
                 //if (pn == pn_uxstacktop || pn == pn_ustacktop) continue; 
                 if (pn == pn_uxstacktop) continue; 
                 void *addr = (void *) (pn << PGSHIFT);
-                cprintf("* %p = %d\n", addr, *(uint32_t *)addr);
                 if ((pte & PTE_W) || (pte & PTE_COW)) {
                    mark_cow(envid, addr);
                } else {
