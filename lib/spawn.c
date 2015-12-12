@@ -300,7 +300,21 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 static int
 copy_shared_pages(envid_t child)
 {
-	// LAB 5: Your code here.
+	int pgdx, ptx;
+
+    for (pgdx = 0; pgdx < UTOP >> 22; ++pgdx)   {
+        pte_t pde = uvpd[pgdx];
+        if (pde & PTE_P) {
+            int ptx;
+            for (ptx = 0; ptx < 1024; ++ptx) {
+                uint32_t pn = (pgdx << 10) + ptx;
+                pte_t pte = uvpt[pn]; 
+                void *addr = (void *) (pn << PGSHIFT);
+                if ((pte & PTE_SHARE))
+                	sys_page_map(0, addr, child, addr, (PTE_SYSCALL | PTE_AVAIL) & pte);
+           }
+        }
+    }
 	return 0;
 }
 

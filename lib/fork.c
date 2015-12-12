@@ -128,7 +128,7 @@ duppage(envid_t envid, uint32_t pn)
        if ((sys_page_map(0, addr, 0, addr, PTE_P|PTE_U|PTE_COW)) < 0) 
           panic("mark cow");
     } else {
-       sys_page_map(0, addr, envid, addr, PTE_P |PTE_U | (pte & PTE_SYSCALL));
+       sys_page_map(0, addr, envid, addr, (PTE_SYSCALL | PTE_AVAIL) & pte);
     } 
 }
 
