@@ -51,40 +51,40 @@ def matchtest(parent, name, *args, **kw):
 #matchtest(test_testfile, "large file",
 #          "large file is good")
 #
-@test(10, "spawn via spawnhello")
-def test_spawn():
-    r.user_test("spawnhello")
-    r.match('i am parent environment 00001001',
-            'hello, world',
-            'i am environment 00001002',
-            'No runnable environments in the system!')
-
-@test(10, "PTE_SHARE [testpteshare]")
-def test_pte_share():
-    r.user_test("testpteshare")
-    r.match('fork handles PTE_SHARE right',
-            'spawn handles PTE_SHARE right')
-
-@test(5, "PTE_SHARE [testfdsharing]")
-def test_fd_share():
-    r.user_test("testfdsharing")
-    r.match('read in child succeeded',
-            'read in parent succeeded')
-
-#@test(10, "start the shell [icode]")
-#def test_icode():
-#    r.user_test("icode")
-#    r.match('icode: read /motd',
-#            'This is /motd, the message of the day.',
-#            'icode: spawn /init',
-#            'init: running',
-#            'init: data seems okay',
-#            'icode: exiting',
-#            'init: bss seems okay',
-#            "init: args: 'init' 'initarg1' 'initarg2'",
-#            'init: running sh',
-#            '\$ ')
+#@test(10, "spawn via spawnhello")
+#def test_spawn():
+#    r.user_test("spawnhello")
+#    r.match('i am parent environment 00001001',
+#            'hello, world',
+#            'i am environment 00001002',
+#            'No runnable environments in the system!')
 #
+#@test(10, "PTE_SHARE [testpteshare]")
+#def test_pte_share():
+#    r.user_test("testpteshare")
+#    r.match('fork handles PTE_SHARE right',
+#            'spawn handles PTE_SHARE right')
+#
+#@test(5, "PTE_SHARE [testfdsharing]")
+#def test_fd_share():
+#    r.user_test("testfdsharing")
+#    r.match('read in child succeeded',
+#            'read in parent succeeded')
+
+@test(10, "start the shell [icode]")
+def test_icode():
+    r.user_test("icode")
+    r.match('icode: read /motd',
+            'This is /motd, the message of the day.',
+            'icode: spawn /init',
+            'init: running',
+            'init: data seems okay',
+            'icode: exiting',
+            'init: bss seems okay',
+            "init: args: 'init' 'initarg1' 'initarg2'",
+            'init: running sh',
+            '\$ ')
+
 #@test(15)
 #def test_testshell():
 #    r.user_test("testshell", timeout=60)

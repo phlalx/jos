@@ -86,6 +86,8 @@ extern void simderr_handler();
 extern void syscall_handler();
 extern void default_handler();
 extern void timer_handler();
+extern void keyboard_handler();
+extern void serial_handler();
 
 void
 trap_init(void)
@@ -206,12 +208,12 @@ trap_init(void)
     SETGATE(idt[IRQ_OFFSET+IRQ_KBD], 
             0 /* istrap */, 
             GD_KT /* segment selector */, 
-            (void *) default_handler, 
+            (void *) keyboard_handler, 
             3 /* dpl */ )
     SETGATE(idt[IRQ_OFFSET+IRQ_SERIAL], 
             0 /* istrap */, 
             GD_KT /* segment selector */, 
-            (void *) default_handler, 
+            (void *) serial_handler, 
             3 /* dpl */ )
     SETGATE(idt[IRQ_OFFSET+IRQ_SPURIOUS], 
             0 /* istrap */, 
@@ -367,10 +369,6 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
-
-	// Handle keyboard and serial interrupts.
-	// LAB 5: Your code here.
-    //
     if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
 		// cprintf("timer interrupt\n");
 		lapic_eoi();
@@ -380,6 +378,27 @@ trap_dispatch(struct Trapframe *tf)
         return;
     } 
 
+	// Handle keyboard and serial interrupts.
+	// LAB 5: Your code here.
+    //
+    if (tf->tf_trapno == IRQ_OFFSET + IRQ_KBD) {
+    	kbd_intr();
+		// lapic_eoi(); TODO pourquoi pas besoin de ça ?
+    	// print_trapframe(tf);
+        sched_yield();
+        assert(false);
+        return;
+    } 
+
+    if (tf->tf_trapno == IRQ_OFFSET + IRQ_SERIAL) {
+    	serial_intr();
+		// cprintf("timer interrupt\n");
+		// lapic_eoi();
+    	// print_trapframe(tf);
+        sched_yield();
+        assert(false);
+        return;
+    } 
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

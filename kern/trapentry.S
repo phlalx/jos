@@ -69,6 +69,9 @@ TRAPHANDLER_NOEC(simderr_handler, T_SIMDERR)
 TRAPHANDLER_NOEC(syscall_handler, T_SYSCALL)
 TRAPHANDLER_NOEC(default_handler, T_DEFAULT)
 TRAPHANDLER_NOEC(timer_handler, IRQ_OFFSET + IRQ_TIMER) 
+// TODO j'ai besoin de ces deux lignes ?
+TRAPHANDLER_NOEC(serial_handler, IRQ_OFFSET + IRQ_SERIAL) 
+TRAPHANDLER_NOEC(keyboard_handler, IRQ_OFFSET + IRQ_KBD) 
 
 /*
  * Lab 3: Your code here for _alltraps
