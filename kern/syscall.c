@@ -463,7 +463,7 @@ static int
 sys_time_msec(void)
 {
 	// LAB 6: Your code here.
-	panic("sys_time_msec not implemented");
+  return time_msec();
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -494,7 +494,6 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
            res = sys_page_alloc((envid_t) a1, (void *) a2, (int) a3);
            break;
         case SYS_page_map:
-//            cprintf("env %08x wants to map address %08x of env %08x %08x perm %08x\n", a1, a2, a3, a4, a5);
             res = sys_page_map((envid_t) a1, (void *) a2, (envid_t) a3, (void *) a4, (int) a5);
             break;
         case SYS_yield:
@@ -521,6 +520,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
            break;
         case SYS_env_set_trapframe:
            res = sys_env_set_trapframe((envid_t) a1, (struct Trapframe *) a2);
+           break;
+        case SYS_time_msec:
+           res = sys_time_msec();
            break;
         case NSYSCALLS:
         default:
