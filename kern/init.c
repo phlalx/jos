@@ -51,6 +51,8 @@ i386_init(void)
 	time_init();
 	pci_init();
 
+	trap_init();
+
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
     // cprintf("lock before waking up other CPUs\n");
