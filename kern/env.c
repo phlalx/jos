@@ -281,7 +281,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	env_free_list = e->env_link;
 	*newenv_store = e;
 
-	// cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+	cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 	return 0;
 }
 
@@ -442,8 +442,6 @@ bad:
 void
 env_create(uint8_t *binary, enum EnvType type)
 {
-
-
     //
 	// LAB 3: Your code here.
     struct Env *newenv;
@@ -463,7 +461,7 @@ env_create(uint8_t *binary, enum EnvType type)
 		newenv->env_tf.tf_eflags = newenv->env_tf.tf_eflags | FL_IOPL_3;
 	}
 
-	//cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, newenv->env_id);
+//	cprintf("[%08x] new env %08x (type %d) \n", curenv ? curenv->env_id : 0, newenv->env_id, newenv->env_type);
 }
 
 //

@@ -495,8 +495,8 @@ page_fault_handler(struct Trapframe *tf)
 
 	// Handle kernel-mode page faults.
     if ((tf->tf_cs & 3) == 0) {
-    //	print_trapframe(tf);
-    //	cprintf("faulting address %08x\n", fault_va);
+    	print_trapframe(tf);
+    	cprintf("faulting address %08x\n", fault_va);
         panic("page fault in kernel mode");
     }
 

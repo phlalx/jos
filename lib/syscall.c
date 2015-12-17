@@ -133,5 +133,5 @@ sys_send_packet(void *buffer, size_t length) {
 
 int
 sys_receive_packet(void *buffer, size_t *length) {
-	return syscall(SYS_send_packet, 0, (uint32_t) buffer, (uint32_t) length, 0, 0, 0);
+	return syscall(SYS_receive_packet, 0, (uint32_t) buffer, (uint32_t) length, 0, 0, 0);
 }

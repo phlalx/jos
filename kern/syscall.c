@@ -494,13 +494,14 @@ sys_send_packet(void *buffer, size_t length) {
   return r;
 }
 
+// buffer should be at least RECBUFFER size
 // return 0 on success.
 // Return < 0 on error.  Errors are:
-//  -E_INVAL if buffer isn't readable in user space 
+//  -E_INVAL if buffer isn't writable in user space 
 //  -E_INVAL if len > MTU 
 static int
 sys_receive_packet(void *buffer, size_t *length) {
-
+  // TODO ne semble pas marcher correctement
   int r = user_mem_check(curenv, buffer, RECBUFFER, PTE_W);
   if (r) {
     return -E_INVAL;
@@ -509,8 +510,8 @@ sys_receive_packet(void *buffer, size_t *length) {
   r = e1000_receive_packet(buffer, length);
 
   if (r == -1) {
-     r = -E_ETH_EMPTY;
-  }
+   r = -E_ETH_EMPTY;
+ }
 
   return r;
 }
@@ -577,7 +578,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
            res = sys_send_packet((void *) a1, (int) a2);
            break;
         case SYS_receive_packet:
-           res = sys_send_packet((void *) a1, (int) a2);
+           res = sys_receive_packet((void *) a1, (size_t *) a2);
            break;
         case NSYSCALLS:
         default:

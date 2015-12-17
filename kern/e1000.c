@@ -1,6 +1,7 @@
 #include <kern/e1000.h>
 #include <kern/pmap.h>
 #include <inc/string.h>
+#include <kern/env.h> // TODO supprimer
 
 volatile uint32_t *e1000;
 
@@ -82,7 +83,7 @@ int e1000_attach_fn(struct pci_func *pcif) {
 //	uint8_t buffer[3000];
 //	size_t length;
 //	e1000_receive_packet(buffer, &length);
-	
+
 	return 0;
 }
 
@@ -117,16 +118,18 @@ int e1000_receive_packet(uint8_t *buffer, size_t *length) {
 	if (!(rx_descs[rx_cur].status & E1000_RXD_STAT_DD)) {
 		return -1;
 	}
-	int i = 0;
 	*length = rx_descs[rx_cur].length;
 	assert(*length < MTU);
-	uint32_t buffer_addr = rx_descs[rx_cur].buffer_addr;
-	memcpy(buffer, (uint8_t *) (buffer_addr), *length);
+	uint32_t *buffer_addr = KADDR((uint32_t) rx_descs[rx_cur].buffer_addr);
+//	cprintf("buffer = %p length = %d\n", buffer, *length);
+//	cprintf("buffer_addr = %p length = %d\n", buffer_addr, *length);
+//	cprintf("curenv = %08x\n", curenv->env_id);
+	memcpy(buffer, buffer_addr, *length);
 
 	rx_cur = (rx_cur + 1) % RDLEN;
 	e1000[E1000_RDT] = rx_cur;
 	rx_descs[rx_cur].status = 0;
-
+	cprintf("e1000 received packet (len = %d) and copied at address %p\n", *length, buffer);
 	return 0;	
 }
 

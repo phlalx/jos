@@ -1,4 +1,5 @@
 #include "ns.h"
+#include "inc/lib.h"
 
 #define DEBUG 0
 
