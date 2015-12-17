@@ -26,7 +26,7 @@ enum {
 	E_NOT_EXEC	,	// File not a valid executable
 	E_NOT_SUPP	,	// Operation not supported
 	E_ETH_OVF	,	// Ethernet buffer is full
-
+	E_ETH_EMPTY	,	// Ethernet buffer is empty
 	MAXERROR
 };
 

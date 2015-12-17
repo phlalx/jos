@@ -111,4 +111,6 @@ int e1000_attach_fn(struct pci_func *pcif);
 
 int e1000_send_packet(void *buffer, size_t length);
 
+int e1000_receive_packet(uint8_t *buffer, size_t *length);
+
 #endif	// JOS_KERN_E1000_H

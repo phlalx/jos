@@ -24,6 +24,8 @@ static int cur = 0;
 static int rx_cur = 0; 
 	// descriptor to receive the next message
 
+int e1000_receive_packet(uint8_t *buffer, size_t *length); 
+
 int e1000_attach_fn(struct pci_func *pcif) {
 	pci_func_enable(pcif);
 	uint32_t base = pcif->reg_base[0];
@@ -63,7 +65,7 @@ int e1000_attach_fn(struct pci_func *pcif) {
 	e1000[E1000_RDBAL] = (uint32_t) PADDR(rx_descs); 
 	e1000[E1000_RDLEN] = RDLEN * sizeof(struct e1000_rx_desc);
 	e1000[E1000_RDH] = 0;
-	e1000[E1000_RDT] = RDLEN;
+	e1000[E1000_RDT] = 0;
  	e1000[E1000_RCTL] = E1000_RCTL_EN | E1000_RCTL_BAM | E1000_RCTL_SZ_2048;
 
  	// The head pointer points to the next descriptor that is written back
@@ -76,6 +78,11 @@ int e1000_attach_fn(struct pci_func *pcif) {
 		rx_descs[i].buffer_addr = (uint32_t) PADDR(receive_buffer[i]);
 	}
 
+
+//	uint8_t buffer[3000];
+//	size_t length;
+//	e1000_receive_packet(buffer, &length);
+	
 	return 0;
 }
 
@@ -117,6 +124,7 @@ int e1000_receive_packet(uint8_t *buffer, size_t *length) {
 	memcpy(buffer, (uint8_t *) (buffer_addr), *length);
 
 	rx_cur = (rx_cur + 1) % RDLEN;
+	e1000[E1000_RDT] = rx_cur;
 	rx_descs[rx_cur].status = 0;
 
 	return 0;	
