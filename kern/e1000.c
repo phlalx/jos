@@ -5,15 +5,24 @@
 volatile uint32_t *e1000;
 
 #define TDLEN 16 // TDLEN * sizeof(tx_desc) must be a multiple of 128
+#define RDLEN 128 // RDLEN * sizeof(e1000_rx_desc) must be a multiple of 128
 
 uint8_t send_buffer[TDLEN][MTU];
-// align this on 16-bytes boundary
 
+
+uint8_t receive_buffer[RDLEN][MTU];
+
+// TODO align this on 16-bytes boundary
 struct tx_desc descs[TDLEN] = { {0} };
+// TODO align this on 16-bytes boundary
+struct e1000_rx_desc rx_descs[RDLEN] = { {0} };
 
+static int cur = 0; 
+	// descriptor to use for sending a message (only if DD
+	// isn't set)
 
-static int cur = 0;
-
+static int rx_cur = 0; 
+	// descriptor to receive the next message
 
 int e1000_attach_fn(struct pci_func *pcif) {
 	pci_func_enable(pcif);
@@ -23,6 +32,7 @@ int e1000_attach_fn(struct pci_func *pcif) {
 	uint32_t val = e1000[E1000_STATUS];
 	cprintf("E1000 Status = %08x\n", val);
 
+	// init sending
 	e1000[E1000_TDBAL] = (uint32_t) PADDR(descs); 
 	e1000[E1000_TDLEN] = TDLEN * sizeof(struct tx_desc);
 	e1000[E1000_TDH] = 0;
@@ -42,7 +52,30 @@ int e1000_attach_fn(struct pci_func *pcif) {
 		descs[i].status = E1000_TXD_STAT_DD;
 	}
 
-	// TODO que renvoyer ?
+	//e1000[E1000_RA][0] = 0x52;
+	// 0x54, 0x00, 0x12, 0x34, 0x56};
+
+	uint8_t *mac_addr = (uint8_t *) &e1000[E1000_RA];
+	e1000[E1000_RAL] = 0x12005452;
+	e1000[E1000_RAH] = 0x5634 | E1000_RAH_AV;
+
+	// init reception
+	e1000[E1000_RDBAL] = (uint32_t) PADDR(rx_descs); 
+	e1000[E1000_RDLEN] = RDLEN * sizeof(struct e1000_rx_desc);
+	e1000[E1000_RDH] = 0;
+	e1000[E1000_RDT] = RDLEN;
+ 	e1000[E1000_RCTL] = E1000_RCTL_EN | E1000_RCTL_BAM | E1000_RCTL_SZ_2048;
+
+ 	// The head pointer points to the next descriptor that is written back
+ 	// HARDWARE OWNS ALL DESCRIPTORS BETWEEN [HEAD AND TAIL]
+
+	for (i = 0; i < TDLEN; i++) {
+		// has to be set the first time we use a descriptor
+		// we use this bit to make sure a descriptor is available
+		// set by the hardware after the first use
+		rx_descs[i].buffer_addr = (uint32_t) PADDR(receive_buffer[i]);
+	}
+
 	return 0;
 }
 
@@ -71,6 +104,22 @@ int e1000_send_packet(void *buffer, size_t length) {
 	return 0;	
 }
 
+// buffer should be at least MTU bytes
+// return 0 is messaged received, -1 othewise
+int e1000_receive_packet(uint8_t *buffer, size_t *length) {
+	if (!(rx_descs[rx_cur].status & E1000_RXD_STAT_DD)) {
+		return -1;
+	}
+	int i = 0;
+	*length = rx_descs[rx_cur].length;
+	assert(*length < MTU);
+	uint32_t buffer_addr = rx_descs[rx_cur].buffer_addr;
+	memcpy(buffer, (uint8_t *) (buffer_addr), *length);
 
+	rx_cur = (rx_cur + 1) % RDLEN;
+	rx_descs[rx_cur].status = 0;
+
+	return 0;	
+}
 
 
