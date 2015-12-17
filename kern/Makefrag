@@ -90,6 +90,7 @@ KERN_BINFILES +=	user/testfile \
 
 # Binary files for LAB6
 KERN_BINFILES +=	user/testtime \
+            user/testethsend\
 			user/httpd \
 			user/echosrv \
 			user/echotest \

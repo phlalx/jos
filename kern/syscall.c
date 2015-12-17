@@ -12,6 +12,7 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 #include <kern/time.h>
+#include <kern/e1000.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -301,6 +302,9 @@ sys_page_map(envid_t srcenvid, void *srcva,
    if ((err = page_insert(dstenv->env_pgdir, p, dstva, perm))) {
            return err;
    }
+
+
+   // TODO utiliser user_mem_check ?
    return 0;
 }
 
@@ -466,6 +470,31 @@ sys_time_msec(void)
   return time_msec();
 }
 
+
+// return 0 on success.
+// Return < 0 on error.  Errors are:
+//  -E_INVAL if buffer isn't readable in user space 
+//  -E_INVAL if len > MTU 
+static int
+sys_send_packet(void *buffer, size_t length) {
+
+  if (length > MTU) {
+    return -E_INVAL;
+  }
+  int r = user_mem_check(curenv, buffer, length, 0);
+  if (r) {
+    return -E_INVAL;
+  }
+
+  r = e1000_send_packet(buffer, length);
+  if (r == -1) {
+     r = -E_ETH_OVF;
+  }
+
+  return r;
+}
+
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -523,6 +552,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
            break;
         case SYS_time_msec:
            res = sys_time_msec();
+           break;
+        case SYS_send_packet:
+           res = sys_send_packet((void *) a1, (int) a2);
            break;
         case NSYSCALLS:
         default:

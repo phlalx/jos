@@ -50,7 +50,10 @@
 #define E1000_IGPT_SHIFT 0
 #define E1000_IGPR1_SHIFT 10 
 #define E1000_IGPR2_SHIFT 20 
- 
+
+#define E1000_TXD_CMD_RS      0x08 /* Report Status */
+#define E1000_TXD_CMD_EOP     0x01 /* Report Status */
+#define E1000_TXD_STAT_DD    0x01 /* Descriptor Done */
 #define MTU 1518
 
 struct tx_desc
@@ -65,5 +68,7 @@ struct tx_desc
 };
 
 int e1000_attach_fn(struct pci_func *pcif);
+
+int e1000_send_packet(void *buffer, size_t length);
 
 #endif	// JOS_KERN_E1000_H
