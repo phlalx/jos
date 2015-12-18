@@ -87,104 +87,104 @@ socket.setdefaulttimeout(5)
 #
 # Basic tests
 #
-
-@test(5)
-def test_testtime():
-    r.user_test("testtime", make_args=["INIT_CFLAGS=-DTEST_NO_NS"])
-    r.match(r'starting count down: 5 4 3 2 1 0 ')
-
-@test(5)
-def test_pci_attach():
-    r.user_test("hello", make_args=["INIT_CFLAGS=-DTEST_NO_NS"])
-    r.match(r'PCI function 00:03.0 \(8086:100e\) enabled')
-
 #
-# testoutput
+#@test(5)
+#def test_testtime():
+#    r.user_test("testtime", make_args=["INIT_CFLAGS=-DTEST_NO_NS"])
+#    r.match(r'starting count down: 5 4 3 2 1 0 ')
 #
-
-def test_testoutput_helper(count):
-    save_pcap_on_fail()
-
-    maybe_unlink("qemu.pcap")
-    r.user_test("net_testoutput",
-                make_args=["NET_CFLAGS=-DTESTOUTPUT_COUNT=%d" % count])
-
-    # Check the packet capture
-    got = list(read_pcap())
-    expect = [("packet %d/%d" % (i+1, count), ascii_to_bytes("Packet %02d" % i))
-              for i in range(count)]
-    match_packet_seq(got, expect)
-
-@test(15, "testoutput [5 packets]")
-def test_testoutput_5():
-    test_testoutput_helper(5)
-
-@test(10, "testoutput [100 packets]")
-def test_testoutput_100():
-    test_testoutput_helper(100)
-
-end_part("A")
-
+#@test(5)
+#def test_pci_attach():
+#    r.user_test("hello", make_args=["INIT_CFLAGS=-DTEST_NO_NS"])
+#    r.match(r'PCI function 00:03.0 \(8086:100e\) enabled')
 #
-# testinput
+##
+## testoutput
+##
 #
-
-def test_testinput_helper(count):
-    save_pcap_on_fail()
-    maybe_unlink("qemu.pcap")
-
-    def send_packets():
-        # Send 'count' UDP packets
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.connect(("127.0.0.1", echo_port))
-        for i in range(count):
-            sock.send(ascii_to_bytes("Packet %03d" % i))
-    send_thread = threading.Thread(target=send_packets)
-
-    # When we see the final packet, we can stop QEMU
-    digits = "%03d" % (count-1)
-    final = "input: 0030   203%s 3%s3%s" % tuple("%03d" % (count-1))
-
-    r.user_test("net_testinput",
-                call_on_line("Waiting for packets",
-                              lambda _: send_thread.start()),
-                stop_on_line(final))
-    if send_thread.isAlive():
-        send_thread.join()
-
-    # Parse testinput hexdumps for received packets
-    got = []
-    for off, dump in re.findall("input: ([0-9a-f]{4})   ([0-9a-f ]*)\n",
-                                r.qemu.output):
-        if off == "0000" or not got:
-            got.append(bytearray())
-        dump = dump.replace(" ", "")
-        for i in range(0, len(dump), 2):
-            got[-1].append(int(dump[i:i+2], 16))
-    got = map(bytes, got)
-
-    # Get the packets QEMU actually received, since there's some
-    # header information we can't easily guess.
-    pcap = list(read_pcap())
-    if len(pcap) != count + 2:
-        raise RuntimeError("pcap contains only %d packets" % len(pcap))
-    # Strip transmitted ARP request
-    assert pcap.pop(0)[:6] == b"\xff" * 6, "First packet is not ARP request"
-    # The E1000 pads packets out to a 60 byte frame
-    pcap = [pkt.ljust(60, b"\0") for pkt in pcap]
-
-    names = ["ARP reply"] + ["packet %d/%d" % (i+1, count)
-                             for i in range(count)]
-    match_packet_seq(got, zip(names, pcap))
-
-@test(15, "testinput [5 packets]")
-def test_testinput_5():
-    test_testinput_helper(5)
-
-@test(10, "testinput [100 packets]")
-def test_testinput_100():
-    test_testinput_helper(100)
-
+#def test_testoutput_helper(count):
+#    save_pcap_on_fail()
+#
+#    maybe_unlink("qemu.pcap")
+#    r.user_test("net_testoutput",
+#                make_args=["NET_CFLAGS=-DTESTOUTPUT_COUNT=%d" % count])
+#
+#    # Check the packet capture
+#    got = list(read_pcap())
+#    expect = [("packet %d/%d" % (i+1, count), ascii_to_bytes("Packet %02d" % i))
+#              for i in range(count)]
+#    match_packet_seq(got, expect)
+#
+#@test(15, "testoutput [5 packets]")
+#def test_testoutput_5():
+#    test_testoutput_helper(5)
+#
+#@test(10, "testoutput [100 packets]")
+#def test_testoutput_100():
+#    test_testoutput_helper(100)
+#
+#end_part("A")
+#
+##
+## testinput
+##
+#
+#def test_testinput_helper(count):
+#    save_pcap_on_fail()
+#    maybe_unlink("qemu.pcap")
+#
+#    def send_packets():
+#        # Send 'count' UDP packets
+#        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#        sock.connect(("127.0.0.1", echo_port))
+#        for i in range(count):
+#            sock.send(ascii_to_bytes("Packet %03d" % i))
+#    send_thread = threading.Thread(target=send_packets)
+#
+#    # When we see the final packet, we can stop QEMU
+#    digits = "%03d" % (count-1)
+#    final = "input: 0030   203%s 3%s3%s" % tuple("%03d" % (count-1))
+#
+#    r.user_test("net_testinput",
+#                call_on_line("Waiting for packets",
+#                              lambda _: send_thread.start()),
+#                stop_on_line(final))
+#    if send_thread.isAlive():
+#        send_thread.join()
+#
+#    # Parse testinput hexdumps for received packets
+#    got = []
+#    for off, dump in re.findall("input: ([0-9a-f]{4})   ([0-9a-f ]*)\n",
+#                                r.qemu.output):
+#        if off == "0000" or not got:
+#            got.append(bytearray())
+#        dump = dump.replace(" ", "")
+#        for i in range(0, len(dump), 2):
+#            got[-1].append(int(dump[i:i+2], 16))
+#    got = map(bytes, got)
+#
+#    # Get the packets QEMU actually received, since there's some
+#    # header information we can't easily guess.
+#    pcap = list(read_pcap())
+#    if len(pcap) != count + 2:
+#        raise RuntimeError("pcap contains only %d packets" % len(pcap))
+#    # Strip transmitted ARP request
+#    assert pcap.pop(0)[:6] == b"\xff" * 6, "First packet is not ARP request"
+#    # The E1000 pads packets out to a 60 byte frame
+#    pcap = [pkt.ljust(60, b"\0") for pkt in pcap]
+#
+#    names = ["ARP reply"] + ["packet %d/%d" % (i+1, count)
+#                             for i in range(count)]
+#    match_packet_seq(got, zip(names, pcap))
+#
+#@test(15, "testinput [5 packets]")
+#def test_testinput_5():
+#    test_testinput_helper(5)
+#
+#@test(10, "testinput [100 packets]")
+#def test_testinput_100():
+#    test_testinput_helper(100)
+#
 #
 # Servers
 #

@@ -10,8 +10,16 @@ extern union Nsipc nsipcbuf;
 // TODO pourquoi c'est pas fait pareil que pour le FS ?
 
 void
-output_serve(void)
+output(envid_t ns_envid)
 {
+	binaryname = "ns_output";
+
+	cprintf("Output environment is alive and kicking! \n");
+
+	// LAB 6: Your code here:
+	// 	- read a packet from the network server
+	//	- send the packet to the device driver
+
 	uint32_t req, whom;
 	int perm, r;
 
@@ -37,17 +45,4 @@ output_serve(void)
 			cprintf("failed to send packet\n");
 		}
 	}
-}
-
-void
-output(envid_t ns_envid)
-{
-	binaryname = "ns_output";
-
-	cprintf("Output environment is alive and kicking! \n");
-	// LAB 6: Your code here:
-	// 	- read a packet from the network server
-	//	- send the packet to the device driver
-
-	output_serve();
 }
